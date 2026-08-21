@@ -99,7 +99,7 @@ CREATE TABLE BucketListItem (
 CREATE TABLE Post (
     PostID      NUMBER(10)  NOT NULL,
     UserID      NUMBER(10)  NOT NULL,
-    MovieID     NUMBER(10)  NOT NULL,       --we assume that a post is always about a movie, but we can change this later if we want to allow posts about other things,careful pahim bhai        
+    MovieID     NUMBER(10)  NOT NULL,        --we assume that a post is always about a movie, but we can change this later if we want to allow posts about other things,careful pahim bhai        
     PostText    CLOB        NOT NULL,
     PostDate    DATE        NOT NULL         -- Oracle DATE stores date+time to the second
 );
