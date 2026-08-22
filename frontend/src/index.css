@@ -1,0 +1,49 @@
+:root {
+  /* -- Color tokens: cinema-hall palette, not a generic dark-mode default -- */
+  --bg: #0a0c10;
+  --panel: #111419;
+  --surface: #1a1e25;
+  --surface-hover: #212630;
+  --border: #2a2f38;
+  --gold: #c9a24b;
+  --gold-bright: #e2bd68;
+  --velvet: #7a2e2e;
+  --text: #ece8e0;
+  --text-muted: #8b8f98;
+  --text-faint: #565b66;
+  --error: #d97757;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-bn: 'Noto Sans Bengali', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

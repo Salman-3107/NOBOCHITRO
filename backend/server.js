@@ -2,12 +2,25 @@ const express = require('express');
 const cors = require('cors');
 const { initPool, closePool } = require('./db');
 
+const authRoutes = require('./routes/authRoutes');
+const movieRoutes = require('./routes/movieRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
   res.send('NOBOCHITRO backend is running');
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api', movieRoutes);
+app.use('/api', reviewRoutes);
+
+// Catch-all 404 for unmatched API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
 });
 
 const PORT = process.env.PORT || 5000;
