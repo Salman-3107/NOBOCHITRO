@@ -1,6 +1,6 @@
-# NOVOCHITRO
+# NOBOCHITRO
 
-NOVOCHITRO is a full-stack movie database and web application.
+NOBOCHITRO is a full-stack movie database and web application.
 
 ## Project Structure
 
