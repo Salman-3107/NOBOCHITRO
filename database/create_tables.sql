@@ -1,159 +1,161 @@
 -- 1. AppUser
-CREATE TABLE AppUser (
-    UserID              NUMBER(10)      NOT NULL,
-    Username            VARCHAR2(50)    NOT NULL,
-    Email               VARCHAR2(100)   NOT NULL,
-    PasswordHash        VARCHAR2(255)   NOT NULL,
-    DisplayName         VARCHAR2(100),
-    JoinDate            DATE            NOT NULL,
-    Bio                 CLOB,
-    ProfilePictureURL   VARCHAR2(500)
+create table appuser (
+   userid            number(10) not null,
+   username          varchar2(50) not null,
+   email             varchar2(100) not null,
+   passwordhash      varchar2(255) not null,
+   displayname       varchar2(100),
+   joindate          date not null,
+   bio               clob,
+   profilepictureurl varchar2(500)
 );
 
 -- 2. Movie
-CREATE TABLE Movie (
-    MovieID         NUMBER(10)      NOT NULL,
-    Title           VARCHAR2(200)   NOT NULL,
-    ReleaseYear     NUMBER(4)       NOT NULL,
-    Runtime         NUMBER(5),
-    Language        VARCHAR2(50),
-    Country         VARCHAR2(50),
-    Synopsis        CLOB,
-    PosterURL       VARCHAR2(500),
-    TrailerURL      VARCHAR2(500)
+create table movie (
+   movieid     number(10) not null,
+   title       varchar2(200) not null,
+   releaseyear number(4) not null,
+   runtime     number(5),
+   language    varchar2(50),
+   country     varchar2(50),
+   synopsis    clob,
+   posterurl   varchar2(500),
+   trailerurl  varchar2(500)
 );
+alter table Movie
+add Box_Office_Collection number(15,2);
 
 -- 3. Genre
-CREATE TABLE Genre (
-    GenreID     NUMBER(10)      NOT NULL,
-    GenreName   VARCHAR2(50)    NOT NULL
+create table genre (
+   genreid   number(10) not null,
+   genrename varchar2(50) not null
 );
 
 -- 4. MovieGenre (bridge: Movie <-> Genre)
-CREATE TABLE MovieGenre (
-    MovieID     NUMBER(10)  NOT NULL,
-    GenreID     NUMBER(10)  NOT NULL
+create table moviegenre (
+   movieid number(10) not null,
+   genreid number(10) not null
 );
 
 -- 5. Person
-CREATE TABLE Person (
-    PersonID        NUMBER(10)      NOT NULL,
-    FullName        VARCHAR2(150)   NOT NULL,
-    DateOfBirth     DATE,
-    Bio             CLOB,
-    PhotoURL        VARCHAR2(500)
+create table person (
+   personid    number(10) not null,
+   fullname    varchar2(150) not null,
+   dateofbirth date,
+   bio         clob,
+   photourl    varchar2(500)
 );
 
 -- 6. MovieCredit (associative: Movie <-> Person, role-carrying)
-CREATE TABLE MovieCredit (
-    MovieID         NUMBER(10)      NOT NULL,
-    PersonID        NUMBER(10)      NOT NULL,
-    RoleType        VARCHAR2(20)    NOT NULL,
-    CharacterName   VARCHAR2(150)
+create table moviecredit (
+   movieid       number(10) not null,
+   personid      number(10) not null,
+   roletype      varchar2(20) not null,
+   charactername varchar2(150)
 );
 
 -- 7. Review (weak entity: AppUser <-> Movie)
-CREATE TABLE Review (
-    UserID          NUMBER(10)  NOT NULL,
-    MovieID         NUMBER(10)  NOT NULL,
-    RatingValue     NUMBER(2)   NOT NULL,
-    ReviewText      CLOB,
-    ReviewDate      DATE        NOT NULL
+create table review (
+   userid      number(10) not null,
+   movieid     number(10) not null,
+   ratingvalue number(2) not null,
+   reviewtext  clob,
+   reviewdate  date not null
 );
 
 -- 8. JournalEntry (existence-dependent, surrogate PK — allows rewatches)
-CREATE TABLE JournalEntry (
-    JournalID       NUMBER(10)      NOT NULL,
-    UserID          NUMBER(10)      NOT NULL,
-    MovieID         NUMBER(10)      NOT NULL,
-    WatchDate       DATE,
-    WatchTime       VARCHAR2(5),        -- Oracle has no native TIME type->careful pahim bhai
-    WatchLocation   VARCHAR2(150),
-    WatchedWith     VARCHAR2(200),
-    MoodBefore      VARCHAR2(50),
-    MoodAfter       VARCHAR2(50),
-    RewatchNumber   NUMBER(3),
-    FavoriteScene   CLOB,
-    Privacy         VARCHAR2(10),
-    JournalText     CLOB
+create table journalentry (
+   journalid     number(10) not null,
+   userid        number(10) not null,
+   movieid       number(10) not null,
+   watchdate     date,
+   watchtime     varchar2(5),        -- Oracle has no native TIME type->careful pahim bhai
+   watchlocation varchar2(150),
+   watchedwith   varchar2(200),
+   moodbefore    varchar2(50),
+   moodafter     varchar2(50),
+   rewatchnumber number(3),
+   favoritescene clob,
+   privacy       varchar2(10),
+   journaltext   clob
 );
 
 -- 9. BucketList
-CREATE TABLE BucketList (
-    ListID          NUMBER(10)      NOT NULL,
-    UserID          NUMBER(10)      NOT NULL,
-    Title           VARCHAR2(150)   NOT NULL,
-    Description     CLOB,
-    Visibility      VARCHAR2(10),
-    ListType        VARCHAR2(30)
+create table bucketlist (
+   listid      number(10) not null,
+   userid      number(10) not null,
+   title       varchar2(150) not null,
+   description clob,
+   visibility  varchar2(10),
+   listtype    varchar2(30)
 );
 
 -- 10. BucketListItem (bridge: BucketList <-> Movie)
-CREATE TABLE BucketListItem (
-    ListID      NUMBER(10)  NOT NULL,
-    MovieID     NUMBER(10)  NOT NULL,
-    DateAdded   DATE
+create table bucketlistitem (
+   listid    number(10) not null,
+   movieid   number(10) not null,
+   dateadded date
 );
 
 -- 11. Post
-CREATE TABLE Post (
-    PostID      NUMBER(10)  NOT NULL,
-    UserID      NUMBER(10)  NOT NULL,
-    MovieID     NUMBER(10)  NOT NULL,        --we assume that a post is always about a movie, but we can change this later if we want to allow posts about other things,careful pahim bhai        
-    PostText    CLOB        NOT NULL,
-    PostDate    DATE        NOT NULL         -- Oracle DATE stores date+time to the second
+create table post (
+   postid   number(10) not null,
+   userid   number(10) not null,
+   movieid  number(10) not null,        --we assume that a post is always about a movie, but we can change this later if we want to allow posts about other things,careful pahim bhai        
+   posttext clob not null,
+   postdate date not null         -- Oracle DATE stores date+time to the second
 );
 
 -- 12. PostLike (bridge: AppUser <-> Post)
-CREATE TABLE PostLike (
-    PostID      NUMBER(10)  NOT NULL,
-    UserID      NUMBER(10)  NOT NULL,
-    LikeDate    DATE
+create table postlike (
+   postid   number(10) not null,
+   userid   number(10) not null,
+   likedate date
 );
 
 -- 13. PostComment (weak entity: dependent on Post)
-CREATE TABLE PostComment (
-    CommentID       NUMBER(10)  NOT NULL,
-    PostID          NUMBER(10)  NOT NULL,
-    UserID          NUMBER(10)  NOT NULL,
-    CommentText     CLOB        NOT NULL,
-    CommentDate     DATE        NOT NULL
+create table postcomment (
+   commentid   number(10) not null,
+   postid      number(10) not null,
+   userid      number(10) not null,
+   commenttext clob not null,
+   commentdate date not null
 );
 
 -- 14. Challenge
-CREATE TABLE Challenge (
-    ChallengeID     NUMBER(10)      NOT NULL,
-    Title           VARCHAR2(150)   NOT NULL,
-    Description     CLOB,
-    CriteriaType    VARCHAR2(30),
-    CriteriaValue   VARCHAR2(100),
-    TargetCount     NUMBER(5)       NOT NULL,
-    XPReward        NUMBER(6)       NOT NULL,
-    StartDate       DATE,
-    EndDate         DATE
+create table challenge (
+   challengeid   number(10) not null,
+   title         varchar2(150) not null,
+   description   clob,
+   criteriatype  varchar2(30),
+   criteriavalue varchar2(100),
+   targetcount   number(5) not null,
+   xpreward      number(6) not null,
+   startdate     date,
+   enddate       date
 );
 
 -- 15. UserChallengeProgress (bridge: AppUser <-> Challenge)
-CREATE TABLE UserChallengeProgress (
-    UserID              NUMBER(10)  NOT NULL,
-    ChallengeID         NUMBER(10)  NOT NULL,
-    CurrentProgress     NUMBER(5)   DEFAULT 0,
-    Completed           NUMBER(1)   DEFAULT 0,
-    CompletionDate      DATE
+create table userchallengeprogress (
+   userid          number(10) not null,
+   challengeid     number(10) not null,
+   currentprogress number(5) default 0,
+   completed       number(1) default 0,
+   completiondate  date
 );
 
 -- 16. Badge
-CREATE TABLE Badge (
-    BadgeID                 NUMBER(10)      NOT NULL,
-    BadgeName               VARCHAR2(100)   NOT NULL,
-    Description             CLOB,
-    IconURL                 VARCHAR2(500),
-    CriteriaDescription     CLOB
+create table badge (
+   badgeid             number(10) not null,
+   badgename           varchar2(100) not null,
+   description         clob,
+   iconurl             varchar2(500),
+   criteriadescription clob
 );
 
 -- 17. UserBadge (bridge: AppUser <-> Badge)
-CREATE TABLE UserBadge (
-    UserID      NUMBER(10)  NOT NULL,
-    BadgeID     NUMBER(10)  NOT NULL,
-    DateEarned  DATE        NOT NULL
+create table userbadge (
+   userid     number(10) not null,
+   badgeid    number(10) not null,
+   dateearned date not null
 );

@@ -189,3 +189,4 @@ alter table userbadge
       foreign key ( badgeid )
          references badge ( badgeid )
             on delete cascade;
+            
