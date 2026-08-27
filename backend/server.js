@@ -5,6 +5,11 @@ const { initPool, closePool } = require('./db');
 const authRoutes = require('./routes/authRoutes');
 const movieRoutes = require('./routes/movieRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const bucketListRoutes = require('./routes/bucketListRoutes');
+const postRoutes = require('./routes/postRoutes');
+const followRoutes = require('./routes/followRoutes');
+const journalRoutes = require('./routes/journalRoutes');
+const tasteMatchRoutes = require('./routes/tasteMatchRoutes');
 
 const app = express();
 app.use(cors());
@@ -17,6 +22,11 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api', movieRoutes);
 app.use('/api', reviewRoutes);
+app.use('/api', bucketListRoutes);
+app.use('/api', postRoutes);
+app.use('/api', followRoutes);
+app.use('/api', journalRoutes);
+app.use('/api', tasteMatchRoutes);
 
 // Catch-all 404 for unmatched API routes
 app.use('/api', (req, res) => {

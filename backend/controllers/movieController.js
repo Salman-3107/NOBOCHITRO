@@ -12,7 +12,7 @@ async function listMovies(req, res) {
 
     let sql = `
       SELECT DISTINCT m.MovieID, m.Title, m.ReleaseYear, m.Runtime,
-             m.Language, m.Country, m.PosterURL,
+             m.Language, m.Country, m.PosterURL, m.BoxOfficeCollection,
              ROUND(AVG(r.RatingValue), 1) AS AvgRating,
              COUNT(r.RatingValue) AS RatingCount
       FROM Movie m
@@ -42,7 +42,7 @@ async function listMovies(req, res) {
 
     sql += `
       GROUP BY m.MovieID, m.Title, m.ReleaseYear, m.Runtime,
-               m.Language, m.Country, m.PosterURL
+               m.Language, m.Country, m.PosterURL, m.BoxOfficeCollection
       ORDER BY m.Title
     `;
 
@@ -67,7 +67,7 @@ async function getMovie(req, res) {
 
     const movieResult = await connection.execute(
       `SELECT MovieID, Title, ReleaseYear, Runtime, Language, Country,
-              Synopsis, PosterURL, TrailerURL
+              Synopsis, PosterURL, TrailerURL, BoxOfficeCollection
        FROM Movie WHERE MovieID = :movieId`,
       { movieId }
     );
@@ -115,11 +115,11 @@ async function getMovie(req, res) {
 }
 
 // POST /api/movies  (admin-style add, no auth wired yet — see note in routes)
-// body: { title, releaseYear, runtime, language, country, synopsis, posterUrl, trailerUrl, genreIds: [1,2] }
+// body: { title, releaseYear, runtime, language, country, synopsis, posterUrl, trailerUrl, boxOfficeCollection, genreIds: [1,2] }
 async function createMovie(req, res) {
   const {
     title, releaseYear, runtime, language, country,
-    synopsis, posterUrl, trailerUrl, genreIds,
+    synopsis, posterUrl, trailerUrl, boxOfficeCollection, genreIds,
   } = req.body;
 
   if (!title || !releaseYear) {
@@ -131,8 +131,8 @@ async function createMovie(req, res) {
     connection = await getPool().getConnection();
 
     const result = await connection.execute(
-      `INSERT INTO Movie (MovieID, Title, ReleaseYear, Runtime, Language, Country, Synopsis, PosterURL, TrailerURL)
-       VALUES (seq_movie.NEXTVAL, :title, :releaseYear, :runtime, :language, :country, :synopsis, :posterUrl, :trailerUrl)
+      `INSERT INTO Movie (MovieID, Title, ReleaseYear, Runtime, Language, Country, Synopsis, PosterURL, TrailerURL, BoxOfficeCollection)
+       VALUES (seq_movie.NEXTVAL, :title, :releaseYear, :runtime, :language, :country, :synopsis, :posterUrl, :trailerUrl, :boxOfficeCollection)
        RETURNING MovieID INTO :newId`,
       {
         title,
@@ -143,6 +143,7 @@ async function createMovie(req, res) {
         synopsis: synopsis || null,
         posterUrl: posterUrl || null,
         trailerUrl: trailerUrl || null,
+        boxOfficeCollection: boxOfficeCollection || null,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
       { autoCommit: !genreIds || genreIds.length === 0 }
