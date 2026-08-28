@@ -10,6 +10,7 @@ const postRoutes = require('./routes/postRoutes');
 const followRoutes = require('./routes/followRoutes');
 const journalRoutes = require('./routes/journalRoutes');
 const tasteMatchRoutes = require('./routes/tasteMatchRoutes');
+const passportRoutes = require('./routes/passportRoutes');
 
 const app = express();
 app.use(cors());
@@ -27,6 +28,7 @@ app.use('/api', postRoutes);
 app.use('/api', followRoutes);
 app.use('/api', journalRoutes);
 app.use('/api', tasteMatchRoutes);
+app.use('/api', passportRoutes);
 
 // Catch-all 404 for unmatched API routes
 app.use('/api', (req, res) => {
