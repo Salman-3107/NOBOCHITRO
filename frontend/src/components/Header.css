@@ -24,7 +24,7 @@
 
 .app-header__wordmark em {
   font-style: italic;
-  color: var(--gold-bright);
+  color: var(--accent-bright);
 }
 
 .app-header__search {
@@ -41,7 +41,7 @@
 }
 
 .app-header__search:focus-within {
-  border-color: var(--gold);
+  border-color: var(--accent);
 }
 
 .app-header__search-icon {
@@ -79,8 +79,8 @@
 }
 
 .app-header__logout:hover {
-  border-color: var(--gold);
-  color: var(--gold-bright);
+  border-color: var(--accent);
+  color: var(--accent-bright);
 }
 
 @media (max-width: 640px) {

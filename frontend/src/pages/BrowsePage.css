@@ -58,8 +58,8 @@
 }
 
 .filter-chip--active {
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #211705;
 }
 
@@ -96,7 +96,7 @@
 
 .sort-select__option--active {
   background: var(--surface-hover);
-  color: var(--gold-bright);
+  color: var(--accent-bright);
 }
 
 .browse-page__status {

@@ -1,13 +1,13 @@
 :root {
-  /* -- Color tokens: cinema-hall palette, not a generic dark-mode default -- */
+  /* -- Color tokens: cinema-hall palette, now in a light-blue accent theme -- */
   --bg: #0a0c10;
   --panel: #111419;
   --surface: #1a1e25;
   --surface-hover: #212630;
   --border: #2a2f38;
-  --gold: #c9a24b;
-  --gold-bright: #e2bd68;
-  --velvet: #7a2e2e;
+  --accent: #4fb6e8;
+  --accent-bright: #8fdcff;
+  --accent-deep: #123b52;
   --text: #ece8e0;
   --text-muted: #8b8f98;
   --text-faint: #565b66;

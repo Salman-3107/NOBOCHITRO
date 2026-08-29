@@ -17,7 +17,7 @@
 }
 
 .movie-card:hover .movie-card__title {
-  color: var(--gold-bright);
+  color: var(--accent-bright);
 }
 
 .movie-card__poster {
@@ -45,12 +45,12 @@
   gap: 4px;
   background: rgba(10, 12, 16, 0.85);
   backdrop-filter: blur(4px);
-  color: var(--gold-bright);
+  color: var(--accent-bright);
   font-size: 12px;
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(201, 162, 75, 0.3);
+  border: 1px solid rgba(79, 182, 232, 0.3);
 }
 
 .movie-card__rating--empty {
@@ -104,7 +104,7 @@
   font-style: italic;
   font-weight: 500;
   font-size: 42px;
-  color: var(--gold-bright);
+  color: var(--accent-bright);
   opacity: 0.85;
 }
 
@@ -124,8 +124,8 @@
     to bottom,
     transparent 0,
     transparent 8px,
-    rgba(201, 162, 75, 0.12) 8px,
-    rgba(201, 162, 75, 0.12) 16px
+    rgba(79, 182, 232, 0.12) 8px,
+    rgba(79, 182, 232, 0.12) 16px
   );
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import LoginPage from './pages/LoginPage';
+import LandingPage from './pages/LandingPage';
 import BrowsePage from './pages/BrowsePage';
 
 export default function App() {
@@ -20,7 +20,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <LoginPage onAuthenticated={setUser} />;
+    return <LandingPage onAuthenticated={setUser} />;
   }
 
   return <BrowsePage user={user} onLogout={handleLogout} onSelectMovie={handleSelectMovie} />;

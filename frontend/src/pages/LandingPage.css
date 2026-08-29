@@ -1,0 +1,246 @@
+.landing-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Abstract background collage ---------- */
+/* Layered blue color blooms + grain + vignette -- suggests the mood of
+   "many different movies" through color and light alone, without
+   depicting any specific film, character, or person. */
+
+.landing-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--bg);
+}
+
+.landing-bg__bloom {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  mix-blend-mode: screen;
+  animation: bloom-drift 26s ease-in-out infinite alternate;
+}
+
+.landing-bg__bloom--1 {
+  width: 60vw;
+  height: 60vw;
+  top: -18%;
+  left: -12%;
+  background: radial-gradient(circle, rgba(143, 220, 255, 0.5), transparent 70%);
+  animation-duration: 22s;
+}
+
+.landing-bg__bloom--2 {
+  width: 50vw;
+  height: 50vw;
+  bottom: -12%;
+  right: -10%;
+  background: radial-gradient(circle, rgba(79, 182, 232, 0.45), transparent 70%);
+  animation-duration: 30s;
+  animation-delay: -6s;
+}
+
+.landing-bg__bloom--3 {
+  width: 42vw;
+  height: 42vw;
+  top: 32%;
+  left: 38%;
+  background: radial-gradient(circle, rgba(18, 59, 82, 0.7), transparent 70%);
+  animation-duration: 34s;
+  animation-delay: -14s;
+}
+
+@keyframes bloom-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(4%, 6%) scale(1.08);
+  }
+}
+
+.landing-bg__beam {
+  position: absolute;
+  top: -20%;
+  left: 55%;
+  width: 30%;
+  height: 140%;
+  background: linear-gradient(100deg, transparent, rgba(143, 220, 255, 0.06) 45%, transparent 60%);
+  transform: rotate(8deg);
+}
+
+.landing-bg__grain {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+  opacity: 0.6;
+}
+
+.landing-bg__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 55% 55% at 50% 48%, var(--bg) 25%, transparent 75%);
+}
+
+/* ---------- Poster wall ---------- */
+
+.poster-wall {
+  position: absolute;
+  inset: 0;
+}
+
+.poster-tile {
+  position: absolute;
+  width: 130px;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  background:
+    linear-gradient(160deg, hsla(var(--tile-hue), 70%, 65%, 0.28), hsla(var(--tile-hue), 60%, 20%, 0.5)),
+    var(--panel);
+  border: 1px solid hsla(var(--tile-hue), 70%, 70%, 0.25);
+  box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.poster-tile__icon {
+  width: 34%;
+  height: 34%;
+  color: hsla(var(--tile-hue), 85%, 78%, 0.8);
+}
+
+@media (max-width: 900px) {
+  .poster-tile {
+    width: 90px;
+  }
+}
+
+@media (max-width: 640px) {
+  .poster-wall {
+    opacity: 0.5;
+  }
+}
+
+/* ---------- Top bar ---------- */
+
+.landing-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 40px;
+}
+
+.landing-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-topbar__wordmark {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.landing-topbar__wordmark em {
+  font-style: italic;
+  color: var(--accent-bright);
+}
+
+.landing-topbar__login {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent-bright);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.2s ease;
+}
+
+.landing-topbar__login:hover {
+  background: rgba(79, 182, 232, 0.12);
+  box-shadow: 0 0 24px rgba(79, 182, 232, 0.3);
+}
+
+/* ---------- Hero ---------- */
+
+.landing-hero {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px 120px;
+  gap: 18px;
+}
+
+.landing-hero__title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 48px;
+  color: var(--text);
+  margin: 8px 0 0 0;
+  letter-spacing: 0.01em;
+}
+
+.landing-hero__title em {
+  font-style: italic;
+  color: var(--accent-bright);
+}
+
+.landing-hero__tagline {
+  font-size: 16px;
+  color: var(--text-muted);
+  max-width: 40ch;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.landing-hero__cta {
+  margin-top: 10px;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 30px;
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+  color: #071a24;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease, box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.landing-hero__cta:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 0 30px rgba(143, 220, 255, 0.4);
+}
+
+.landing-hero__cta:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 640px) {
+  .landing-topbar {
+    padding: 18px 20px;
+  }
+
+  .landing-hero__title {
+    font-size: 34px;
+  }
+}
