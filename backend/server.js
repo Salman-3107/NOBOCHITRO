@@ -11,6 +11,13 @@ const followRoutes = require('./routes/followRoutes');
 const journalRoutes = require('./routes/journalRoutes');
 const tasteMatchRoutes = require('./routes/tasteMatchRoutes');
 const passportRoutes = require('./routes/passportRoutes');
+const challengeRoutes = require('./routes/challengeRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const recommendationRoutes = require('./routes/recommendationRoutes');
+const leaderboardRoutes = require('./routes/leaderboardRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 app.use(cors());
@@ -29,6 +36,13 @@ app.use('/api', followRoutes);
 app.use('/api', journalRoutes);
 app.use('/api', tasteMatchRoutes);
 app.use('/api', passportRoutes);
+app.use('/api', challengeRoutes);
+app.use('/api', adminRoutes);
+app.use('/api', searchRoutes);
+app.use('/api', recommendationRoutes);
+app.use('/api', leaderboardRoutes);
+app.use('/api', activityRoutes);
+app.use('/api', notificationRoutes);
 
 // Catch-all 404 for unmatched API routes
 app.use('/api', (req, res) => {

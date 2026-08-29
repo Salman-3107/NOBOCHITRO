@@ -3,8 +3,9 @@ const { getPool } = require('../db');
 
 // GET /api/movies
 // Optional query params: ?genre=Action&year=2010&search=title text
+//                        &sort=popular|top_rated|recent|trending
 async function listMovies(req, res) {
-  const { genre, year, search } = req.query;
+  const { genre, year, search, sort } = req.query;
 
   let connection;
   try {
@@ -12,9 +13,11 @@ async function listMovies(req, res) {
 
     let sql = `
       SELECT DISTINCT m.MovieID, m.Title, m.ReleaseYear, m.Runtime,
-             m.Language, m.Country, m.PosterURL, m.BoxOfficeCollection,
+             m.Language, m.Country, m.PosterURL, m.BOX_OFFICE_COLLECTION,
              ROUND(AVG(r.RatingValue), 1) AS AvgRating,
-             COUNT(r.RatingValue) AS RatingCount
+             COUNT(r.RatingValue) AS RatingCount,
+             (SELECT COUNT(*) FROM Review r3
+              WHERE r3.MovieID = m.MovieID AND r3.ReviewDate >= SYSDATE - 30) AS RecentActivityCount
       FROM Movie m
       LEFT JOIN Review r ON r.MovieID = m.MovieID
     `;
@@ -42,9 +45,29 @@ async function listMovies(req, res) {
 
     sql += `
       GROUP BY m.MovieID, m.Title, m.ReleaseYear, m.Runtime,
-               m.Language, m.Country, m.PosterURL, m.BoxOfficeCollection
-      ORDER BY m.Title
+               m.Language, m.Country, m.PosterURL, m.BOX_OFFICE_COLLECTION
     `;
+
+    // Discovery sorts: popular = most-rated, top_rated = highest average
+    // (community favorite), recent = newest releases, trending = most
+    // review activity in the last 30 days. Default stays alphabetical
+    // so existing behavior for anyone not passing ?sort= is unchanged.
+    switch (sort) {
+      case 'popular':
+        sql += ' ORDER BY RatingCount DESC';
+        break;
+      case 'top_rated':
+        sql += ' ORDER BY AvgRating DESC NULLS LAST';
+        break;
+      case 'recent':
+        sql += ' ORDER BY m.ReleaseYear DESC';
+        break;
+      case 'trending':
+        sql += ' ORDER BY RecentActivityCount DESC';
+        break;
+      default:
+        sql += ' ORDER BY m.Title';
+    }
 
     const result = await connection.execute(sql, binds);
     res.json(result.rows);
@@ -67,7 +90,7 @@ async function getMovie(req, res) {
 
     const movieResult = await connection.execute(
       `SELECT MovieID, Title, ReleaseYear, Runtime, Language, Country,
-              Synopsis, PosterURL, TrailerURL, BoxOfficeCollection
+              Synopsis, PosterURL, TrailerURL, BOX_OFFICE_COLLECTION
        FROM Movie WHERE MovieID = :movieId`,
       { movieId }
     );
@@ -131,7 +154,7 @@ async function createMovie(req, res) {
     connection = await getPool().getConnection();
 
     const result = await connection.execute(
-      `INSERT INTO Movie (MovieID, Title, ReleaseYear, Runtime, Language, Country, Synopsis, PosterURL, TrailerURL, BoxOfficeCollection)
+      `INSERT INTO Movie (MovieID, Title, ReleaseYear, Runtime, Language, Country, Synopsis, PosterURL, TrailerURL, BOX_OFFICE_COLLECTION)
        VALUES (seq_movie.NEXTVAL, :title, :releaseYear, :runtime, :language, :country, :synopsis, :posterUrl, :trailerUrl, :boxOfficeCollection)
        RETURNING MovieID INTO :newId`,
       {

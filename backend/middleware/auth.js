@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { getPool } = require('../db');
 
 // Reads "Authorization: Bearer <token>", verifies it, and attaches
 // the decoded payload (userId, username) to req.user.
@@ -42,4 +43,30 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, optionalAuth };
+// Must run AFTER requireAuth (needs req.user.userId already set).
+// Deliberately re-checks the database instead of trusting an
+// "isAdmin" flag baked into the JWT -- a token issued before someone
+// was promoted (or after they were demoted) would otherwise still
+// carry the old, stale permission for up to 7 days.
+async function requireAdmin(req, res, next) {
+  let connection;
+  try {
+    connection = await getPool().getConnection();
+    const result = await connection.execute(
+      `SELECT IsAdmin FROM AppUser WHERE UserID = :userId`,
+      { userId: req.user.userId }
+    );
+
+    if (result.rows.length === 0 || result.rows[0].ISADMIN !== 1) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+  } catch (err) {
+    console.error('requireAdmin check error:', err);
+    res.status(500).json({ error: 'Failed to verify admin status' });
+  } finally {
+    if (connection) await connection.close();
+  }
+}
+
+module.exports = { requireAuth, optionalAuth, requireAdmin };

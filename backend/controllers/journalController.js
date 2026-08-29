@@ -1,5 +1,6 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
+const { evaluateChallengeProgress } = require('./challengeController');
 
 // POST /api/movies/:id/journal  (auth)
 // body: { watchDate?, watchTime?, watchLocation?, watchedWith?,
@@ -49,12 +50,20 @@ async function createEntry(req, res) {
         journalText: journalText || null,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
-      { autoCommit: true }
+      { autoCommit: false }
     );
+
+    const journalId = result.outBinds.newId[0];
+
+    // Check this movie against every challenge the user has joined,
+    // updating progress in the SAME transaction as the journal insert
+    // above -- so either both succeed together, or neither does.
+    await evaluateChallengeProgress(connection, userId, movieId);
+    await connection.commit();
 
     res.status(201).json({
       message: 'Journal entry saved',
-      journalId: result.outBinds.newId[0],
+      journalId,
       rewatchNumber,
     });
   } catch (err) {

@@ -1,5 +1,6 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
+const { createNotification } = require('./notificationController');
 
 // POST /api/posts  (auth)
 // body: { movieId, postText }
@@ -170,8 +171,22 @@ async function likePost(req, res) {
     await connection.execute(
       `INSERT INTO PostLike (PostID, UserID, LikeDate) VALUES (:postId, :userId, SYSDATE)`,
       { postId, userId },
-      { autoCommit: true }
+      { autoCommit: false }
     );
+
+    const postResult = await connection.execute(
+      `SELECT p.UserID AS OwnerID, u.Username FROM Post p JOIN AppUser u ON u.UserID = :userId WHERE p.PostID = :postId`,
+      { userId, postId }
+    );
+    const ownerId = postResult.rows[0]?.OWNERID;
+    const likerUsername = postResult.rows[0]?.USERNAME || 'Someone';
+
+    // Don't notify yourself for liking your own post.
+    if (ownerId && ownerId !== userId) {
+      await createNotification(connection, ownerId, 'PostLike', `${likerUsername} liked your post`, postId);
+    }
+    await connection.commit();
+
     res.status(201).json({ message: 'Post liked' });
   } catch (err) {
     if (err.errorNum === 1) {
@@ -236,8 +251,21 @@ async function addComment(req, res) {
         commentText,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
-      { autoCommit: true }
+      { autoCommit: false }
     );
+
+    const postResult = await connection.execute(
+      `SELECT p.UserID AS OwnerID, u.Username FROM Post p JOIN AppUser u ON u.UserID = :userId WHERE p.PostID = :postId`,
+      { userId, postId }
+    );
+    const ownerId = postResult.rows[0]?.OWNERID;
+    const commenterUsername = postResult.rows[0]?.USERNAME || 'Someone';
+
+    if (ownerId && ownerId !== userId) {
+      await createNotification(connection, ownerId, 'PostComment', `${commenterUsername} commented on your post`, postId);
+    }
+    await connection.commit();
+
     res.status(201).json({ message: 'Comment added', commentId: result.outBinds.newId[0] });
   } catch (err) {
     if (err.errorNum === 2291) {

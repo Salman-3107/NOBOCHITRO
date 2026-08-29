@@ -1,4 +1,5 @@
 const { getPool } = require('../db');
+const { createNotification } = require('./notificationController');
 
 // POST /api/users/:id/follow  (auth)
 async function followUser(req, res) {
@@ -15,8 +16,24 @@ async function followUser(req, res) {
     await connection.execute(
       `INSERT INTO UserFollow (FollowerID, FollowedID, FollowDate) VALUES (:followerId, :followedId, SYSDATE)`,
       { followerId, followedId },
-      { autoCommit: true }
+      { autoCommit: false }
     );
+
+    const followerResult = await connection.execute(
+      `SELECT Username FROM AppUser WHERE UserID = :followerId`,
+      { followerId }
+    );
+    const followerUsername = followerResult.rows[0]?.USERNAME || 'Someone';
+
+    await createNotification(
+      connection,
+      followedId,
+      'Follow',
+      `${followerUsername} started following you`,
+      followerId
+    );
+    await connection.commit();
+
     res.status(201).json({ message: 'Now following user' });
   } catch (err) {
     // ORA-00001: composite PK (FollowerID, FollowedID) already exists -- already following

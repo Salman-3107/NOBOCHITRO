@@ -190,3 +190,5 @@ alter table userbadge
          references badge ( badgeid )
             on delete cascade;
             
+
+            SELECT column_name FROM user_tab_columns WHERE table_name = 'MOVIE';
