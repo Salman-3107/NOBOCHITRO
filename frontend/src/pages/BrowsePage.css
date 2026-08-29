@@ -1,0 +1,133 @@
+.browse-page {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.browse-page__content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.browse-page__intro h1 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 28px;
+  margin: 0 0 4px 0;
+  color: var(--text);
+}
+
+.browse-page__intro p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.browse-page__filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 28px 0 24px 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.filter-chip:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.filter-chip--active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #211705;
+}
+
+.filter-chip--active:hover {
+  color: #211705;
+}
+
+.sort-select {
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.sort-select__option {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.sort-select__option:hover {
+  color: var(--text);
+}
+
+.sort-select__option--active {
+  background: var(--surface-hover);
+  color: var(--gold-bright);
+}
+
+.browse-page__status {
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 60px 0;
+}
+
+.browse-page__status--error {
+  color: var(--error);
+}
+
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 24px 18px;
+}
+
+@media (max-width: 640px) {
+  .browse-page__content {
+    padding: 20px;
+  }
+
+  .browse-page__filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .movie-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 18px 12px;
+  }
+}
