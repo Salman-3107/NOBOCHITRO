@@ -12,6 +12,35 @@
 
 .app-header__brand {
   flex-shrink: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.app-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-shrink: 0;
+}
+
+.app-header__nav-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.app-header__nav-link:hover,
+.app-header__nav-link--active {
+  color: var(--accent-bright);
 }
 
 .app-header__wordmark {
@@ -91,5 +120,16 @@
 
   .app-header__wordmark {
     font-size: 16px;
+  }
+
+  .app-header__nav,
+  .app-header__logout {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-header__nav-link:nth-child(n + 4) {
+    display: none;
   }
 }

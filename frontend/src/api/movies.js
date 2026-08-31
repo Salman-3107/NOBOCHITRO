@@ -18,3 +18,30 @@ export function listGenres() {
 export function getMovie(movieId) {
   return apiRequest(`/movies/${movieId}`);
 }
+
+export function getMovieReviews(movieId) {
+  return apiRequest(`/movies/${movieId}/reviews`);
+}
+
+export function saveMovieReview(movieId, { rating, reviewText }) {
+  return apiRequest(`/movies/${movieId}/reviews`, {
+    method: 'POST',
+    body: JSON.stringify({ rating, reviewText }),
+  });
+}
+
+export function getWatchlist(userId) {
+  return apiRequest(`/users/${userId}/watchlist`);
+}
+
+export function addToWatchlist(movieId) {
+  return apiRequest(`/movies/${movieId}/watchlist`, { method: 'POST' });
+}
+
+export function removeFromWatchlist(movieId) {
+  return apiRequest(`/movies/${movieId}/watchlist`, { method: 'DELETE' });
+}
+
+export function getRecommendations() {
+  return apiRequest('/recommendations');
+}

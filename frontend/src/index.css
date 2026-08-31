@@ -1,17 +1,17 @@
 :root {
-  /* -- Color tokens: cinema-hall palette, now in a light-blue accent theme -- */
-  --bg: #0a0c10;
-  --panel: #111419;
-  --surface: #1a1e25;
-  --surface-hover: #212630;
-  --border: #2a2f38;
-  --accent: #4fb6e8;
-  --accent-bright: #8fdcff;
-  --accent-deep: #123b52;
-  --text: #ece8e0;
-  --text-muted: #8b8f98;
-  --text-faint: #565b66;
-  --error: #d97757;
+  /* Cinema-hall palette */
+  --bg: #080809;
+  --panel: #111113;
+  --surface: #1a191c;
+  --surface-hover: #252226;
+  --border: #302c31;
+  --accent: #bd2638;
+  --accent-bright: #ff6575;
+  --accent-deep: #591521;
+  --text: #f2eef0;
+  --text-muted: #a39ba1;
+  --text-faint: #6b6369;
+  --error: #ff6575;
 
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;

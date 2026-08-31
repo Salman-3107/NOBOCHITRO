@@ -9,11 +9,11 @@
   gap: 10px;
   font-family: inherit;
   color: inherit;
-  transition: transform 0.15s ease;
+  transition: transform 0.24s ease;
 }
 
 .movie-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-7px);
 }
 
 .movie-card:hover .movie-card__title {
@@ -27,6 +27,7 @@
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
+  transition: border-color 0.24s ease, box-shadow 0.24s ease;
 }
 
 .movie-card__poster img {
@@ -34,6 +35,17 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.4s ease, filter 0.4s ease;
+}
+
+.movie-card:hover .movie-card__poster {
+  border-color: rgba(255, 101, 117, 0.7);
+  box-shadow: 0 13px 28px rgba(0, 0, 0, 0.48), 0 0 23px rgba(189, 38, 56, 0.24);
+}
+
+.movie-card:hover .movie-card__poster img {
+  transform: scale(1.07);
+  filter: brightness(0.65) saturate(0.8);
 }
 
 .movie-card__rating {
@@ -50,7 +62,7 @@
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(79, 182, 232, 0.3);
+  border: 1px solid rgba(255, 101, 117, 0.35);
 }
 
 .movie-card__rating--empty {
@@ -61,6 +73,33 @@
 .movie-card__info {
   padding: 0 2px;
 }
+
+.movie-card__quick-action {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 7px;
+  background: rgba(11, 9, 11, 0.78);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.22s ease, transform 0.22s ease, background 0.22s ease;
+}
+
+.movie-card__quick-action span { color: var(--accent-bright); font-size: 16px; line-height: 10px; }
+.movie-card:hover .movie-card__quick-action { opacity: 1; transform: translateY(0); }
+.movie-card:hover .movie-card__quick-action:hover { background: rgba(189, 38, 56, 0.78); }
 
 .movie-card__title {
   font-family: var(--font-display);
@@ -124,8 +163,8 @@
     to bottom,
     transparent 0,
     transparent 8px,
-    rgba(79, 182, 232, 0.12) 8px,
-    rgba(79, 182, 232, 0.12) 16px
+    rgba(255, 101, 117, 0.12) 8px,
+    rgba(255, 101, 117, 0.12) 16px
   );
 }
 

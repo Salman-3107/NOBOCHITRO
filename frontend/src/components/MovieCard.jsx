@@ -22,6 +22,9 @@ export default function MovieCard({ movie, onClick }) {
             'New'
           )}
         </span>
+        <span className="movie-card__quick-action" aria-hidden="true">
+          <span>+</span> Add to watchlist
+        </span>
       </div>
 
       <div className="movie-card__info">
