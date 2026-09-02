@@ -42,6 +42,53 @@ function RatingControl({ movieId, onSaved }) {
   );
 }
 
+function ReviewComposer({ movieId, onSaved }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [reviewText, setReviewText] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submitReview(event) {
+    event.preventDefault();
+    if (!rating) {
+      setError('Choose a rating before publishing your review.');
+      return;
+    }
+    setIsSaving(true);
+    setError('');
+    try {
+      await saveMovieReview(movieId, { rating, reviewText: reviewText.trim() });
+      setReviewText('');
+      setRating(0);
+      setIsOpen(false);
+      onSaved();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  if (!isOpen) {
+    return <button type="button" className="write-review-button" onClick={() => setIsOpen(true)}>✦ Write a review</button>;
+  }
+
+  return (
+    <form className="review-composer" onSubmit={submitReview}>
+      <div className="review-composer__topline"><div><p className="section-label">Your perspective</p><h3>Write a review</h3></div><button type="button" className="review-composer__close" onClick={() => setIsOpen(false)} aria-label="Close review editor">×</button></div>
+      <div className="review-composer__rating" aria-label="Choose your rating">
+        {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => <button key={value} type="button" className={value <= rating ? 'review-score review-score--selected' : 'review-score'} onClick={() => setRating(value)}>{value}</button>)}
+        <span>{rating ? `${rating}/10` : 'Choose a score'}</span>
+      </div>
+      <label className="review-composer__label" htmlFor="review-text">Your review <small>optional</small></label>
+      <textarea id="review-text" value={reviewText} onChange={(event) => setReviewText(event.target.value)} maxLength="2000" placeholder="What stayed with you after the credits rolled?" rows="5" />
+      <div className="review-composer__footer"><span>{reviewText.length}/2000</span><button type="submit" className="details-button details-button--gold" disabled={isSaving}>{isSaving ? 'Publishing…' : 'Publish review'}</button></div>
+      {error && <p className="review-composer__error">{error}</p>}
+    </form>
+  );
+}
+
 export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate }) {
   const [movie, setMovie] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -105,6 +152,7 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
               </div>
               <section className="section-block">
                 <div className="section-heading"><div><p className="section-label">From the community</p><h2>Reviews</h2></div><span>{reviews.length} rating{reviews.length === 1 ? '' : 's'}</span></div>
+                <ReviewComposer movieId={movieId} onSaved={loadMovie} />
                 {reviews.length ? <div className="review-list">{reviews.map((review) => <article className="review-card" key={review.USERID}><div className="review-card__avatar">{(review.DISPLAYNAME || review.USERNAME).charAt(0)}</div><div><div className="review-card__topline"><strong>{review.DISPLAYNAME || review.USERNAME}</strong><span>★ {review.RATINGVALUE}/10</span></div><p>{review.REVIEWTEXT || 'Rated this movie.'}</p></div></article>)}</div> : <p className="empty-copy">Be the first person to rate this movie.</p>}
               </section>
             </section>
