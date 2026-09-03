@@ -153,6 +153,17 @@ async function createMovie(req, res) {
   try {
     connection = await getPool().getConnection();
 
+    const existing = await connection.execute(
+      `SELECT MovieID FROM Movie WHERE Title = :title AND ReleaseYear = :releaseYear`,
+      { title, releaseYear }
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({
+        error: 'A movie with this title and release year already exists',
+        movieId: existing.rows[0].MOVIEID,
+      });
+    }
+
     const result = await connection.execute(
       `INSERT INTO Movie (MovieID, Title, ReleaseYear, Runtime, Language, Country, Synopsis, PosterURL, TrailerURL, BOX_OFFICE_COLLECTION)
        VALUES (seq_movie.NEXTVAL, :title, :releaseYear, :runtime, :language, :country, :synopsis, :posterUrl, :trailerUrl, :boxOfficeCollection)

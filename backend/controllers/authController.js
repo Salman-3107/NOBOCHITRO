@@ -62,7 +62,7 @@ async function register(req, res) {
 // POST /api/auth/login
 // body: { username, password }
 async function login(req, res) {
-  const { username, password } = req.body;
+  const { username, password, asAdmin } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'username and password are required' });
@@ -73,7 +73,7 @@ async function login(req, res) {
     connection = await getPool().getConnection();
 
     const result = await connection.execute(
-      `SELECT UserID, Username, Email, PasswordHash, DisplayName
+      `SELECT UserID, Username, Email, PasswordHash, DisplayName, IsAdmin
        FROM AppUser
        WHERE Username = :username`,
       { username }
@@ -90,8 +90,17 @@ async function login(req, res) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
+    const isAdmin = user.ISADMIN === 1;
+
+    // If the person came in through the "Sign in as Admin" option, only let
+    // actual admin accounts through -- correct credentials aren't enough on
+    // their own, so a regular user can't land in the admin area by mistake.
+    if (asAdmin && !isAdmin) {
+      return res.status(403).json({ error: 'This account does not have admin access' });
+    }
+
     const token = jwt.sign(
-      { userId: user.USERID, username: user.USERNAME },
+      { userId: user.USERID, username: user.USERNAME, isAdmin },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -103,6 +112,7 @@ async function login(req, res) {
         username: user.USERNAME,
         email: user.EMAIL,
         displayName: user.DISPLAYNAME,
+        isAdmin,
       },
       token,
     });

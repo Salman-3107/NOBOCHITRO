@@ -7,9 +7,9 @@ export function registerUser({ username, email, password }) {
   });
 }
 
-export function loginUser({ username, password }) {
+export function loginUser({ username, password, asAdmin }) {
   return apiRequest('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, asAdmin: !!asAdmin }),
   });
 }

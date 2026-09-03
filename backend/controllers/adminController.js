@@ -15,6 +15,32 @@ async function updateMovie(req, res) {
   try {
     connection = await getPool().getConnection();
 
+    // If title and/or releaseYear are being changed, make sure the new
+    // combination doesn't already belong to a different movie.
+    if (title || releaseYear) {
+      const current = await connection.execute(
+        `SELECT Title, ReleaseYear FROM Movie WHERE MovieID = :movieId`,
+        { movieId }
+      );
+      if (current.rows.length === 0) {
+        return res.status(404).json({ error: 'Movie not found' });
+      }
+      const effectiveTitle = title || current.rows[0].TITLE;
+      const effectiveYear = releaseYear || current.rows[0].RELEASEYEAR;
+
+      const clash = await connection.execute(
+        `SELECT MovieID FROM Movie
+         WHERE Title = :effectiveTitle AND ReleaseYear = :effectiveYear AND MovieID != :movieId`,
+        { effectiveTitle, effectiveYear, movieId }
+      );
+      if (clash.rows.length > 0) {
+        return res.status(409).json({
+          error: 'Another movie with this title and release year already exists',
+          movieId: clash.rows[0].MOVIEID,
+        });
+      }
+    }
+
     const result = await connection.execute(
       `UPDATE Movie SET
          Title = NVL(:title, Title),
