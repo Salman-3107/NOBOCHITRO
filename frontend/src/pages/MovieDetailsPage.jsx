@@ -1,7 +1,56 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Header from '../components/Header';
-import { addToWatchlist, getMovie, getMovieReviews, saveMovieReview } from '../api/movies';
+import MovieCard from '../components/MovieCard';
+import { addToWatchlist, getMovie, getMovieReviews, listMovies, saveMovieReview } from '../api/movies';
 import './MovieDetailsPage.css';
+
+// A horizontally-scrolling row of movie cards, Netflix-style: drag/scroll
+// with the mouse or trackpad, snap to card edges, fade at both sides so
+// it reads as "more content this way" rather than a hard cutoff.
+function MovieRail({ movies, onSelect }) {
+  const trackRef = useRef(null);
+
+  function scrollBy(amount) {
+    trackRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
+  }
+
+  if (!movies.length) return null;
+
+  return (
+    <div className="rail">
+      <button type="button" className="rail__arrow rail__arrow--left" aria-label="Scroll left" onClick={() => scrollBy(-480)}>‹</button>
+      <div className="rail__track" ref={trackRef}>
+        {movies.map((item) => (
+          <div className="rail__item" key={item.MOVIEID}>
+            <MovieCard movie={item} onClick={() => onSelect(item.MOVIEID)} />
+          </div>
+        ))}
+      </div>
+      <button type="button" className="rail__arrow rail__arrow--right" aria-label="Scroll right" onClick={() => scrollBy(480)}>›</button>
+    </div>
+  );
+}
+
+// Cast presented as a scrolling row of circular portraits (Instagram
+// stories-style), each lifting and ringed in accent color on hover to
+// reveal the character name.
+function CastRail({ credits }) {
+  if (!credits.length) return null;
+
+  return (
+    <div className="cast-rail">
+      {credits.map((credit) => (
+        <div className="cast-chip" key={`${credit.PERSONID}-${credit.ROLETYPE}`}>
+          <div className="cast-chip__portrait">
+            {credit.PHOTOURL ? <img src={credit.PHOTOURL} alt={credit.FULLNAME} /> : <span>{credit.FULLNAME.charAt(0)}</span>}
+          </div>
+          <strong className="cast-chip__name">{credit.FULLNAME}</strong>
+          <p className="cast-chip__role">{credit.CHARACTERNAME || credit.ROLETYPE}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function Poster({ movie }) {
   if (movie.POSTERURL) return <img className="movie-details__poster" src={movie.POSTERURL} alt={`${movie.TITLE} poster`} />;
@@ -89,12 +138,13 @@ function ReviewComposer({ movieId, onSaved }) {
   );
 }
 
-export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate }) {
+export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate, onSelectMovie }) {
   const [movie, setMovie] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [status, setStatus] = useState('loading');
   const [search, setSearch] = useState('');
   const [watchlistMessage, setWatchlistMessage] = useState('');
+  const [relatedMovies, setRelatedMovies] = useState([]);
 
   async function loadMovie() {
     setStatus('loading');
@@ -109,6 +159,27 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
   }
 
   useEffect(() => { loadMovie(); }, [movieId]);
+
+  // "More like this" -- pull other movies that share this film's primary
+  // genre, Netflix-style, so the details page never feels like a dead end.
+  useEffect(() => {
+    let cancelled = false;
+    if (!movie?.genres?.length) {
+      setRelatedMovies([]);
+      return;
+    }
+    listMovies({ genre: movie.genres[0].GENRENAME })
+      .then((results) => {
+        if (cancelled) return;
+        setRelatedMovies((results || []).filter((item) => item.MOVIEID !== movie.MOVIEID).slice(0, 12));
+      })
+      .catch(() => { if (!cancelled) setRelatedMovies([]); });
+    return () => { cancelled = true; };
+  }, [movie?.MOVIEID]);
+
+  function goToMovie(id) {
+    if (onSelectMovie) onSelectMovie(id);
+  }
 
   async function handleAddToWatchlist() {
     try {
@@ -127,22 +198,42 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
       {status === 'ready' && movie && (
         <main>
           <section className="movie-details__hero">
-            <div className="movie-details__backdrop" aria-hidden="true">{movie.POSTERURL && <img src={movie.POSTERURL} alt="" />}</div>
+            <div className="movie-details__backdrop" aria-hidden="true">{movie.POSTERURL && <img key={movie.MOVIEID} src={movie.POSTERURL} alt="" />}</div>
             <div className="movie-details__hero-content">
               <button type="button" className="back-link" onClick={onBack}>← Back to discovery</button>
               <div className="movie-details__summary">
                 <Poster movie={movie} />
                 <div className="movie-details__headline">
-                  <p className="movie-details__eyebrow">{movie.RELEASEYEAR} · {movie.LANGUAGE || 'Feature film'}</p>
+                  <div className="movie-details__eyebrow-row">
+                    {movie.avgRating && <span className="match-chip">{Math.round(movie.avgRating * 10)}% match</span>}
+                    <p className="movie-details__eyebrow">{movie.RELEASEYEAR} · {movie.LANGUAGE || 'Feature film'}</p>
+                  </div>
                   <h1>{movie.TITLE}</h1>
                   <p className="movie-details__facts">{movie.RELEASEYEAR}{movie.RUNTIME ? ` · ${movie.RUNTIME} minutes` : ''}{movie.COUNTRY ? ` · ${movie.COUNTRY}` : ''}</p>
                   <div className="genre-tags">{movie.genres.map((genre) => <span key={genre.GENREID}>{genre.GENRENAME}</span>)}</div>
-                  <div className="movie-details__actions"><button type="button" className="details-button details-button--gold" onClick={handleAddToWatchlist}>+ Watchlist</button><button type="button" className="details-button details-button--dark">▶ Trailer</button></div>
+                  <div className="movie-details__actions">
+                    <button type="button" className="details-button details-button--play">▶ Trailer</button>
+                    <button type="button" className="details-button details-button--list" onClick={handleAddToWatchlist}>+ My List</button>
+                  </div>
                   {watchlistMessage && <p className="movie-details__watchlist-message">{watchlistMessage}</p>}
                 </div>
               </div>
             </div>
           </section>
+
+          {movie.credits.length > 0 && (
+            <section className="rail-section">
+              <div className="rail-section__heading"><p className="section-label">Cast &amp; crew</p></div>
+              <CastRail credits={movie.credits} />
+            </section>
+          )}
+
+          {relatedMovies.length > 0 && (
+            <section className="rail-section">
+              <div className="rail-section__heading"><p className="section-label">More like this</p></div>
+              <MovieRail movies={relatedMovies} onSelect={goToMovie} />
+            </section>
+          )}
 
           <div className="movie-details__body">
             <section className="movie-details__main-column">
@@ -159,7 +250,6 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
             <aside className="movie-details__side-column">
               <div className="community-rating"><p className="section-label">NOBOCHITRO rating</p><strong>{movie.avgRating || '–'}<small>/10</small></strong><p>Based on {movie.ratingCount || 0} community ratings</p></div>
               <RatingControl movieId={movieId} onSaved={loadMovie} />
-              <div className="credits"><p className="section-label">Cast & crew</p>{movie.credits.length ? movie.credits.map((credit) => <div className="credit" key={`${credit.PERSONID}-${credit.ROLETYPE}`}><span className="credit__avatar">{credit.FULLNAME.charAt(0)}</span><div><strong>{credit.FULLNAME}</strong><p>{credit.ROLETYPE}{credit.CHARACTERNAME ? ` · ${credit.CHARACTERNAME}` : ''}</p></div></div>) : <p className="empty-copy">Credits coming soon.</p>}</div>
             </aside>
           </div>
         </main>

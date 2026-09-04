@@ -39,7 +39,7 @@ export default function App() {
   }
 
   if (selectedMovieId) {
-    return <MovieDetailsPage movieId={selectedMovieId} user={user} onLogout={handleLogout} onBack={() => setSelectedMovieId(null)} onNavigate={handleNavigate} />;
+    return <MovieDetailsPage movieId={selectedMovieId} user={user} onLogout={handleLogout} onBack={() => setSelectedMovieId(null)} onNavigate={handleNavigate} onSelectMovie={handleSelectMovie} />;
   }
 
   if (profileUserId) return <ProfilePage profileUserId={profileUserId} user={user} onLogout={handleLogout} onNavigate={handleNavigate} onSelectProfile={handleSelectProfile} onSelectMovie={handleSelectMovie} />;
