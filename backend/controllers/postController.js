@@ -45,7 +45,7 @@ async function createPost(req, res) {
 // Returns like count + comment count per post via subqueries, which is
 // far cheaper than joining and grouping across three tables at once.
 async function listPosts(req, res) {
-  const { movieId } = req.query;
+  const { movieId, userId } = req.query;
 
   let connection;
   try {
@@ -53,8 +53,8 @@ async function listPosts(req, res) {
 
     let sql = `
       SELECT p.PostID, p.PostText, p.PostDate,
-             u.UserID, u.Username, u.DisplayName,
-             m.MovieID, m.Title AS MovieTitle,
+             u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL,
+             m.MovieID, m.Title AS MovieTitle, m.PosterURL,
              (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
              (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount
       FROM Post p
@@ -63,10 +63,16 @@ async function listPosts(req, res) {
     `;
     const binds = {};
 
+    const filters = [];
     if (movieId) {
-      sql += ' WHERE p.MovieID = :movieId';
+      filters.push('p.MovieID = :movieId');
       binds.movieId = Number(movieId);
     }
+    if (userId) {
+      filters.push('p.UserID = :userId');
+      binds.userId = Number(userId);
+    }
+    if (filters.length) sql += ` WHERE ${filters.join(' AND ')}`;
 
     sql += ' ORDER BY p.PostDate DESC';
 
@@ -90,8 +96,8 @@ async function getPost(req, res) {
 
     const postResult = await connection.execute(
       `SELECT p.PostID, p.PostText, p.PostDate,
-              u.UserID, u.Username, u.DisplayName,
-              m.MovieID, m.Title AS MovieTitle,
+              u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL,
+              m.MovieID, m.Title AS MovieTitle, m.PosterURL,
               (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount
        FROM Post p
        JOIN AppUser u ON u.UserID = p.UserID
@@ -105,7 +111,7 @@ async function getPost(req, res) {
     }
 
     const commentsResult = await connection.execute(
-      `SELECT c.CommentID, c.CommentText, c.CommentDate, u.UserID, u.Username, u.DisplayName
+      `SELECT c.CommentID, c.CommentText, c.CommentDate, u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL
        FROM PostComment c
        JOIN AppUser u ON u.UserID = c.UserID
        WHERE c.PostID = :postId
@@ -322,8 +328,8 @@ async function getFollowingFeed(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `SELECT p.PostID, p.PostText, p.PostDate,
-              u.UserID, u.Username, u.DisplayName,
-              m.MovieID, m.Title AS MovieTitle,
+              u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL,
+              m.MovieID, m.Title AS MovieTitle, m.PosterURL,
               (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
               (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount
        FROM Post p

@@ -1,5 +1,6 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
+const { createNotification } = require('./notificationController');
 
 // PUT /api/movies/:id  (admin)
 // body: any subset of { title, releaseYear, runtime, language, country,
@@ -239,8 +240,13 @@ async function createChallenge(req, res) {
         endDate: endDate ? new Date(endDate) : null,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
-      { autoCommit: true }
+      { autoCommit: false }
     );
+    const recipients = await connection.execute('SELECT UserID FROM AppUser');
+    for (const recipient of recipients.rows) {
+      await createNotification(connection, recipient.USERID, 'WeeklyChallenge', `New weekly challenge: ${title}`, result.outBinds.newId[0]);
+    }
+    await connection.commit();
     res.status(201).json({ message: 'Challenge created', challengeId: result.outBinds.newId[0] });
   } catch (err) {
     console.error('Create challenge error:', err);

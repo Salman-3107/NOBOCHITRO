@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { initPool, closePool } = require('./db');
 
 const authRoutes = require('./routes/authRoutes');
@@ -22,6 +23,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.send('NOBOCHITRO backend is running');

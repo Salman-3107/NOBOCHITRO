@@ -78,6 +78,14 @@ async function getMoviePassport(req, res) {
       { profileUserId }
     );
 
+    const countries = await connection.execute(
+      `SELECT m.Country, COUNT(DISTINCT j.MovieID) AS WatchCount
+       FROM JournalEntry j JOIN Movie m ON m.MovieID = j.MovieID
+       WHERE j.UserID = :profileUserId ${privacyFilter} AND m.Country IS NOT NULL
+       GROUP BY m.Country ORDER BY WatchCount DESC FETCH FIRST 12 ROWS ONLY`,
+      { profileUserId }
+    );
+
     res.json({
       userId: profileUserId,
       totalWatched: overview.rows[0].TOTALWATCHED,
@@ -91,6 +99,7 @@ async function getMoviePassport(req, res) {
         : null,
       averageRating: ratingStats.rows[0].AVGRATING,
       totalRated: ratingStats.rows[0].TOTALRATED,
+      countries: countries.rows,
     });
   } catch (err) {
     console.error('Get movie passport error:', err);

@@ -73,7 +73,7 @@ async function login(req, res) {
     connection = await getPool().getConnection();
 
     const result = await connection.execute(
-      `SELECT UserID, Username, Email, PasswordHash, DisplayName, IsAdmin
+      `SELECT UserID, Username, Email, PasswordHash, DisplayName, ProfilePictureURL, IsAdmin
        FROM AppUser
        WHERE Username = :username`,
       { username }
@@ -113,6 +113,7 @@ async function login(req, res) {
         email: user.EMAIL,
         displayName: user.DISPLAYNAME,
         isAdmin,
+        profilePictureUrl: user.PROFILEPICTUREURL,
       },
       token,
     });

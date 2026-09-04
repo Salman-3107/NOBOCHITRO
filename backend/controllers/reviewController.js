@@ -62,7 +62,7 @@ async function getMovieReviews(req, res) {
   try {
     connection = await getPool().getConnection();
     const result = await connection.execute(
-      `SELECT u.UserID, u.Username, u.DisplayName, r.RatingValue, r.ReviewText, r.ReviewDate
+      `SELECT u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL, r.RatingValue, r.ReviewText, r.ReviewDate
        FROM Review r
        JOIN AppUser u ON u.UserID = r.UserID
        WHERE r.MovieID = :movieId

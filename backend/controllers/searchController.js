@@ -15,7 +15,7 @@ async function search(req, res) {
 
     const [movies, people, users] = await Promise.all([
       connection.execute(
-        `SELECT MovieID, Title, ReleaseYear FROM Movie WHERE UPPER(Title) LIKE UPPER(:term) FETCH FIRST 10 ROWS ONLY`,
+        `SELECT MovieID, Title, ReleaseYear, PosterURL FROM Movie WHERE UPPER(Title) LIKE UPPER(:term) FETCH FIRST 10 ROWS ONLY`,
         { term }
       ),
       connection.execute(

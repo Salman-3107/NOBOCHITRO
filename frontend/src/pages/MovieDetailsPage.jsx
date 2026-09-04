@@ -153,7 +153,7 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
               <section className="section-block">
                 <div className="section-heading"><div><p className="section-label">From the community</p><h2>Reviews</h2></div><span>{reviews.length} rating{reviews.length === 1 ? '' : 's'}</span></div>
                 <ReviewComposer movieId={movieId} onSaved={loadMovie} />
-                {reviews.length ? <div className="review-list">{reviews.map((review) => <article className="review-card" key={review.USERID}><div className="review-card__avatar">{(review.DISPLAYNAME || review.USERNAME).charAt(0)}</div><div><div className="review-card__topline"><strong>{review.DISPLAYNAME || review.USERNAME}</strong><span>★ {review.RATINGVALUE}/10</span></div><p>{review.REVIEWTEXT || 'Rated this movie.'}</p></div></article>)}</div> : <p className="empty-copy">Be the first person to rate this movie.</p>}
+                {reviews.length ? <div className="review-list">{reviews.map((review) => <article className="review-card" key={review.USERID}>{review.PROFILEPICTUREURL ? <img className="review-card__avatar review-card__avatar--image" src={review.PROFILEPICTUREURL} alt="" /> : <div className="review-card__avatar">{(review.DISPLAYNAME || review.USERNAME).charAt(0)}</div>}<div><div className="review-card__topline"><strong>{review.DISPLAYNAME || review.USERNAME}</strong><span>★ {review.RATINGVALUE}/10</span></div><p>{review.REVIEWTEXT || 'Rated this movie.'}</p></div></article>)}</div> : <p className="empty-copy">Be the first person to rate this movie.</p>}
               </section>
             </section>
             <aside className="movie-details__side-column">

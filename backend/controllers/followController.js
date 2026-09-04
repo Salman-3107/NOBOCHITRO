@@ -84,7 +84,7 @@ async function getFollowers(req, res) {
   try {
     connection = await getPool().getConnection();
     const result = await connection.execute(
-      `SELECT u.UserID, u.Username, u.DisplayName, uf.FollowDate
+      `SELECT u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL, uf.FollowDate
        FROM UserFollow uf
        JOIN AppUser u ON u.UserID = uf.FollowerID
        WHERE uf.FollowedID = :userId
@@ -108,7 +108,7 @@ async function getFollowing(req, res) {
   try {
     connection = await getPool().getConnection();
     const result = await connection.execute(
-      `SELECT u.UserID, u.Username, u.DisplayName, uf.FollowDate
+      `SELECT u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL, uf.FollowDate
        FROM UserFollow uf
        JOIN AppUser u ON u.UserID = uf.FollowedID
        WHERE uf.FollowerID = :userId

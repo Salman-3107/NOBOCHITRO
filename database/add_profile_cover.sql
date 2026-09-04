@@ -1,0 +1,1 @@
+ALTER TABLE AppUser ADD CoverPictureURL VARCHAR2(500);
