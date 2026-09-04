@@ -16,62 +16,43 @@
   inset: 0;
   z-index: 0;
   background: var(--bg);
+  overflow: hidden;
 }
 
-.landing-bg__bloom {
+/* ---------- Scrolling poster-wall photo ---------- */
+/* Two stacked copies of the same photo, animated upward by exactly one
+   copy's height (100vh each) so the loop is seamless -- a slow, endless
+   drift of posters behind the hero content. */
+
+.poster-scroll {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  mix-blend-mode: screen;
-  animation: bloom-drift 26s ease-in-out infinite alternate;
+  inset: 0;
+  width: 100%;
+  animation: poster-scroll-up 60s linear infinite;
+  will-change: transform;
 }
 
-.landing-bg__bloom--1 {
-  width: 60vw;
-  height: 60vw;
-  top: -18%;
-  left: -12%;
-  background: radial-gradient(circle, rgba(143, 220, 255, 0.5), transparent 70%);
-  animation-duration: 22s;
+.poster-scroll__img {
+  width: 100%;
+  height: 100vh;
+  background-image: url('/images/landing-poster-wall.jpg');
+  background-size: cover;
+  background-position: center;
 }
 
-.landing-bg__bloom--2 {
-  width: 50vw;
-  height: 50vw;
-  bottom: -12%;
-  right: -10%;
-  background: radial-gradient(circle, rgba(189, 38, 56, 0.46), transparent 70%);
-  animation-duration: 30s;
-  animation-delay: -6s;
-}
-
-.landing-bg__bloom--3 {
-  width: 42vw;
-  height: 42vw;
-  top: 32%;
-  left: 38%;
-  background: radial-gradient(circle, rgba(18, 59, 82, 0.7), transparent 70%);
-  animation-duration: 34s;
-  animation-delay: -14s;
-}
-
-@keyframes bloom-drift {
+@keyframes poster-scroll-up {
   from {
-    transform: translate(0, 0) scale(1);
+    transform: translateY(0);
   }
   to {
-    transform: translate(4%, 6%) scale(1.08);
+    transform: translateY(-100vh);
   }
 }
 
-.landing-bg__beam {
-  position: absolute;
-  top: -20%;
-  left: 55%;
-  width: 30%;
-  height: 140%;
-  background: linear-gradient(100deg, transparent, rgba(143, 220, 255, 0.06) 45%, transparent 60%);
-  transform: rotate(8deg);
+@media (prefers-reduced-motion: reduce) {
+  .poster-scroll {
+    animation: none;
+  }
 }
 
 .landing-bg__grain {
@@ -86,48 +67,9 @@
 .landing-bg__vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 55% 55% at 50% 48%, var(--bg) 25%, transparent 75%);
-}
-
-/* ---------- Poster wall ---------- */
-
-.poster-wall {
-  position: absolute;
-  inset: 0;
-}
-
-.poster-tile {
-  position: absolute;
-  width: 130px;
-  aspect-ratio: 2 / 3;
-  border-radius: 10px;
   background:
-    linear-gradient(160deg, hsla(var(--tile-hue), 70%, 65%, 0.28), hsla(var(--tile-hue), 60%, 20%, 0.5)),
-    var(--panel);
-  border: 1px solid hsla(var(--tile-hue), 70%, 70%, 0.25);
-  box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.8;
-}
-
-.poster-tile__icon {
-  width: 34%;
-  height: 34%;
-  color: hsla(var(--tile-hue), 85%, 78%, 0.8);
-}
-
-@media (max-width: 900px) {
-  .poster-tile {
-    width: 90px;
-  }
-}
-
-@media (max-width: 640px) {
-  .poster-wall {
-    opacity: 0.5;
-  }
+    radial-gradient(ellipse 60% 55% at 50% 46%, rgba(7, 12, 16, 0.35), transparent 70%),
+    rgba(7, 12, 16, 0.45);
 }
 
 /* ---------- Top bar ---------- */
