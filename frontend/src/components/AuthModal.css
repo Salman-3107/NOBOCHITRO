@@ -185,6 +185,16 @@
   padding: 10px 12px;
 }
 
+.auth-modal__success {
+  margin: 0;
+  font-size: 13px;
+  color: #4caf7d;
+  background: rgba(76, 175, 125, 0.1);
+  border: 1px solid rgba(76, 175, 125, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
 .auth-modal__submit {
   margin-top: 6px;
   border: none;
