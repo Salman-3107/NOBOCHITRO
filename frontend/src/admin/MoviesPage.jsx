@@ -16,7 +16,7 @@ export default function MoviesPage() {
   const loadMovies = useCallback(async (searchTerm) => {
     setStatus('loading');
     try {
-      const [movieRows, genreRows] = await Promise.all([listMovies(searchTerm), listGenres()]);
+      const [movieRows, genreRows] = await Promise.all([listMovies({ search: searchTerm }), listGenres()]);
       setMovies(movieRows);
       setGenres(genreRows);
       setStatus('ready');

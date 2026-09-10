@@ -7,6 +7,7 @@ import CommunityPage from './pages/CommunityPage';
 import ProfilePage from './pages/ProfilePage';
 import JournalPage from './pages/JournalPage';
 import PassportPage from './pages/PassportPage';
+import AdminApp from './admin/AdminApp';
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -36,6 +37,12 @@ export default function App() {
 
   if (!user) {
     return <LandingPage onAuthenticated={setUser} />;
+  }
+
+  // Same login form for everyone -- the backend already tells us whether
+  // this account is an admin, so we just render a different app for it.
+  if (user.isAdmin) {
+    return <AdminApp user={user} onLogout={handleLogout} />;
   }
 
   if (selectedMovieId) {

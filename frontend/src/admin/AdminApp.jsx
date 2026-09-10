@@ -1,24 +1,12 @@
 import { useState } from 'react';
-import AdminLoginPage from './pages/AdminLoginPage';
-import MoviesPage from './pages/MoviesPage';
-import './App.css';
+import MoviesPage from './MoviesPage';
+import './AdminApp.css';
 
-export default function App() {
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('nobochitro_admin_user');
-    return stored ? JSON.parse(stored) : null;
-  });
+// Rendered by the main App.jsx whenever the logged-in user has isAdmin true.
+// There's no separate admin login anymore -- whoever is signed in on the
+// regular Sign in form lands here automatically if their account is an admin.
+export default function AdminApp({ user, onLogout }) {
   const [page, setPage] = useState('home');
-
-  function handleLogout() {
-    localStorage.removeItem('nobochitro_admin_token');
-    localStorage.removeItem('nobochitro_admin_user');
-    setUser(null);
-  }
-
-  if (!user) {
-    return <AdminLoginPage onAuthenticated={setUser} />;
-  }
 
   return (
     <div className="admin-shell">
@@ -42,7 +30,7 @@ export default function App() {
         </div>
         <div className="admin-shell__user">
           <span>{user.displayName || user.username}</span>
-          <button type="button" className="admin-shell__logout" onClick={handleLogout}>
+          <button type="button" className="admin-shell__logout" onClick={onLogout}>
             Sign out
           </button>
         </div>

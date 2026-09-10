@@ -19,6 +19,29 @@ export function getMovie(movieId) {
   return apiRequest(`/movies/${movieId}`);
 }
 
+// Admin-only movie management. requireAuth + requireAdmin on the backend
+// already reject these unless the logged-in user is actually an admin --
+// the frontend just needs to be logged in as one to see this UI at all.
+export function createMovie(payload) {
+  return apiRequest('/movies', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateMovie(movieId, payload) {
+  return apiRequest(`/movies/${movieId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteMovie(movieId) {
+  return apiRequest(`/movies/${movieId}`, {
+    method: 'DELETE',
+  });
+}
+
 export function getMovieReviews(movieId) {
   return apiRequest(`/movies/${movieId}/reviews`);
 }
