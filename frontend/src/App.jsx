@@ -8,6 +8,7 @@ import ProfilePage from './pages/ProfilePage';
 import JournalPage from './pages/JournalPage';
 import PassportPage from './pages/PassportPage';
 import AdminApp from './admin/AdminApp';
+import { logoutUser } from './api/auth';
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -19,6 +20,12 @@ export default function App() {
   const [profileUserId, setProfileUserId] = useState(null);
 
   function handleLogout() {
+    // Tell the backend to revoke this token server-side. We still clear
+    // local storage and log the user out on the frontend even if this
+    // call fails (e.g. backend already down) -- the person's intent to
+    // leave shouldn't be blocked by a network hiccup, but we still make
+    // a genuine best-effort attempt to invalidate the session properly.
+    logoutUser().catch(() => {});
     localStorage.removeItem('nobochitro_token');
     localStorage.removeItem('nobochitro_user');
     setUser(null);

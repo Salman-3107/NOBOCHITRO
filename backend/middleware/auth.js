@@ -2,8 +2,12 @@ const jwt = require('jsonwebtoken');
 const { getPool } = require('../db');
 
 // Reads "Authorization: Bearer <token>", verifies it, and attaches
-// the decoded payload (userId, username) to req.user.
-function requireAuth(req, res, next) {
+// the decoded payload (userId, username, jti, exp) to req.user.
+// Also rejects tokens whose jti has been explicitly revoked via
+// logout, even though the signature and expiry are still valid --
+// that's what makes logout an actual server-side session end, not
+// just the frontend forgetting its copy of the token.
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith('Bearer ')) {
@@ -12,13 +16,40 @@ function requireAuth(req, res, next) {
 
   const token = header.split(' ')[1];
 
+  let payload;
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload; // { userId, username }
-    next();
+    payload = jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+
+  // Tokens issued before the jti/logout feature existed have nothing to
+  // check against -- let them through on signature+expiry alone, same
+  // as before. New tokens always have a jti.
+  if (!payload.jti) {
+    req.user = payload;
+    return next();
+  }
+
+  let connection;
+  try {
+    connection = await getPool().getConnection();
+    const result = await connection.execute(
+      `SELECT 1 FROM RevokedToken WHERE TokenJTI = :jti`,
+      { jti: payload.jti }
+    );
+    if (result.rows.length > 0) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+  } catch (err) {
+    console.error('Token revocation check error:', err);
+    return res.status(500).json({ error: 'Failed to verify session' });
+  } finally {
+    if (connection) await connection.close();
+  }
+
+  req.user = payload;
+  next();
 }
 
 // Like requireAuth, but never blocks the request. If a valid token

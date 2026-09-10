@@ -13,3 +13,7 @@ export function loginUser({ username, password, asAdmin }) {
     body: JSON.stringify({ username, password, asAdmin: !!asAdmin }),
   });
 }
+
+export function logoutUser() {
+  return apiRequest('/auth/logout', { method: 'POST' });
+}

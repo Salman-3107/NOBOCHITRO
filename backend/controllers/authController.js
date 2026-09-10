@@ -1,9 +1,11 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
 
 const SALT_ROUNDS = 10;
+const TOKEN_TTL = '7d';
 
 // POST /api/auth/register
 // body: { username, email, password, displayName? }
@@ -37,9 +39,9 @@ async function register(req, res) {
     const newUserId = result.outBinds.newId[0];
 
     const token = jwt.sign(
-      { userId: newUserId, username },
+      { userId: newUserId, username, jti: crypto.randomUUID() },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: TOKEN_TTL }
     );
 
     res.status(201).json({
@@ -100,9 +102,9 @@ async function login(req, res) {
     }
 
     const token = jwt.sign(
-      { userId: user.USERID, username: user.USERNAME, isAdmin },
+      { userId: user.USERID, username: user.USERNAME, isAdmin, jti: crypto.randomUUID() },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: TOKEN_TTL }
     );
 
     res.json({
@@ -125,4 +127,43 @@ async function login(req, res) {
   }
 }
 
-module.exports = { register, login };
+// POST /api/auth/logout  (auth)
+// requireAuth has already verified the token and attached its payload
+// (including jti and exp) to req.user. We record that jti as revoked
+// so this exact token can never be used again, even though it hasn't
+// technically expired yet -- that's the part localStorage.removeItem()
+// on the frontend could never do by itself.
+async function logout(req, res) {
+  const { jti, exp, userId } = req.user;
+
+  if (!jti) {
+    // Token was issued before this feature existed (no jti claim) --
+    // nothing to revoke server-side. Frontend clearing its copy is all
+    // that can be done for tokens this old; they'll simply expire naturally.
+    return res.json({ message: 'Logged out successfully' });
+  }
+
+  let connection;
+  try {
+    connection = await getPool().getConnection();
+    await connection.execute(
+      `INSERT INTO RevokedToken (TokenJTI, UserID, ExpiresAt)
+       VALUES (:jti, :userId, TO_DATE('1970-01-01', 'YYYY-MM-DD') + (:exp / 86400))`,
+      { jti, userId, exp },
+      { autoCommit: true }
+    );
+    res.json({ message: 'Logged out successfully' });
+  } catch (err) {
+    // Already revoked (e.g. double-clicked logout) -- not an error from
+    // the user's point of view, the end state they want is already true.
+    if (err.errorNum === 1) {
+      return res.json({ message: 'Logged out successfully' });
+    }
+    console.error('Logout error:', err);
+    res.status(500).json({ error: 'Failed to log out' });
+  } finally {
+    if (connection) await connection.close();
+  }
+}
+
+module.exports = { register, login, logout };
