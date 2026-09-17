@@ -432,9 +432,32 @@ async function setUserRole(req, res) {
     return res.status(400).json({ error: 'isAdmin (true/false) is required' });
   }
 
+  if (!Number.isInteger(targetUserId) || targetUserId < 1) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+
+  // Demoting yourself would drop you out of the admin area mid-session with
+  // a token that still says isAdmin -- confusing, and easy to do by accident.
+  if (!isAdmin && targetUserId === req.user.userId) {
+    return res.status(400).json({ error: 'You cannot remove your own admin access' });
+  }
+
   let connection;
   try {
     connection = await getPool().getConnection();
+
+    // Guard the one irreversible case: demoting the final admin leaves nobody
+    // able to promote anyone back, and the only fix is editing the database
+    // by hand.
+    if (!isAdmin) {
+      const adminCount = await connection.execute(
+        `SELECT COUNT(*) AS Total FROM AppUser WHERE IsAdmin = 1`
+      );
+      if (adminCount.rows[0].TOTAL <= 1) {
+        return res.status(409).json({ error: 'Cannot demote the only remaining admin' });
+      }
+    }
+
     const result = await connection.execute(
       `UPDATE AppUser SET IsAdmin = :isAdmin WHERE UserID = :targetUserId`,
       { isAdmin: isAdmin ? 1 : 0, targetUserId },

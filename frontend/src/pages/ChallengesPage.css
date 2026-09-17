@@ -1,0 +1,259 @@
+.challenges-page {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.challenges-wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.challenges-hero__eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--accent-bright);
+}
+
+.challenges-hero h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  font-weight: 600;
+}
+
+.challenges-hero span {
+  color: var(--text-muted);
+  font-size: 0.93rem;
+}
+
+.challenges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.challenge-card {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  transition: border-color 0.16s ease;
+}
+
+.challenge-card:hover {
+  border-color: var(--surface-hover);
+}
+
+.challenge-card--done {
+  border-color: var(--gold-dim);
+  background:
+    linear-gradient(90deg, var(--gold-soft), transparent 45%),
+    var(--panel);
+}
+
+.challenge-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.challenge-card__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+}
+
+.challenge-card--done .challenge-card__eyebrow {
+  color: var(--gold);
+}
+
+.challenge-card__head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.challenge-card__xp {
+  flex: 0 0 auto;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.challenge-card__desc {
+  margin: 10px 0 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.challenge-card__track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.challenge-card__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent-bright));
+  transition: width 0.4s ease;
+}
+
+.challenge-card--done .challenge-card__fill {
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+}
+
+.challenge-card__progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.challenge-card__progress strong {
+  color: var(--text);
+}
+
+.challenge-card__badge {
+  color: var(--gold);
+  font-size: 0.8rem;
+}
+
+.challenge-card__join {
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--text);
+  font-size: 0.87rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.challenge-card__join:hover:not(:disabled) {
+  background: var(--accent-bright);
+}
+
+.challenge-card__join:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* ---------- Achievements ---------- */
+.challenges-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.challenges-section-heading p {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+}
+
+.challenges-section-heading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.challenges-section-heading span {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 5px;
+  padding: 20px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.badge--locked {
+  /* Locked badges stay readable but visibly inert -- greyed, not hidden,
+     so the ladder ahead is still legible. */
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.badge--unlocked {
+  border-color: var(--gold-dim);
+  background: linear-gradient(180deg, var(--gold-soft), var(--panel) 70%);
+}
+
+.badge__icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.badge__name {
+  font-size: 0.92rem;
+}
+
+.badge__blurb {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.badge__state {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.badge--unlocked .badge__state {
+  color: var(--gold);
+}
+
+@media (max-width: 640px) {
+  .challenges-wrap {
+    padding: 20px 14px 64px;
+    gap: 20px;
+  }
+
+  .challenge-card {
+    padding: 16px;
+  }
+
+  .badge-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

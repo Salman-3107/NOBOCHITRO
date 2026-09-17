@@ -1,0 +1,238 @@
+.taste-page {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.taste-wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.taste-hero__eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--accent-bright);
+}
+
+.taste-hero h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  font-weight: 600;
+}
+
+.taste-hero span {
+  color: var(--text-muted);
+  font-size: 0.93rem;
+  line-height: 1.55;
+}
+
+/* ---------- Score ---------- */
+.taste-score {
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.taste-score__number {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.taste-score__number strong {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 8vw, 4rem);
+  line-height: 1;
+  color: var(--gold);
+}
+
+.taste-score__number span {
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+}
+
+.taste-score__meter {
+  height: 12px;
+  margin: 18px 0 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.taste-score__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  transition: width 0.5s ease;
+}
+
+.taste-score__detail {
+  margin: 0;
+  font-size: 0.87rem;
+  color: var(--text-muted);
+}
+
+.taste-score__detail strong {
+  color: var(--text);
+}
+
+/* ---------- Sections ---------- */
+.taste-section h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.taste-section__note {
+  margin: 0 0 16px;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.taste-strip {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+.taste-strip__item {
+  flex: 0 0 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.taste-strip__item img,
+.taste-strip__placeholder {
+  width: 100%;
+  aspect-ratio: var(--poster-ratio);
+  border-radius: var(--radius);
+  object-fit: cover;
+  background: var(--surface);
+  transition: transform 0.16s ease;
+}
+
+.taste-strip__placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 1.8rem;
+}
+
+.taste-strip__item:hover img {
+  transform: translateY(-4px);
+}
+
+.taste-strip__item strong {
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
+.taste-strip__item small {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Disagreements ---------- */
+.taste-disagree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.taste-disagree button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.taste-disagree button:hover {
+  border-color: var(--accent-deep);
+  background: var(--surface);
+}
+
+.taste-disagree__title {
+  font-size: 0.95rem;
+}
+
+.taste-disagree__scores {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.taste-disagree__scores em {
+  font-style: normal;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.taste-disagree__mine,
+.taste-disagree__theirs {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.taste-disagree__mine {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.taste-disagree__theirs {
+  background: rgba(189, 38, 56, 0.16);
+  color: var(--accent-bright);
+}
+
+@media (max-width: 640px) {
+  .taste-wrap {
+    padding: 20px 14px 64px;
+    gap: 20px;
+  }
+
+  .taste-disagree button {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .taste-disagree__scores {
+    justify-content: flex-start;
+  }
+
+  .taste-strip__item {
+    flex: 0 0 112px;
+  }
+}

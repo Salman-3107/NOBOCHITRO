@@ -1,0 +1,82 @@
+.rating-stars__label {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.rating-stars__row {
+  display: flex;
+  gap: 2px;
+}
+
+.rating-stars__star {
+  background: none;
+  border: 0;
+  padding: 0 1px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 1.6rem;
+  /* Unfilled stars stay visible but recede, so the control reads as a
+     ten-point scale even before anything is selected. */
+  color: var(--border);
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.rating-stars__star:hover,
+.rating-stars__star:focus-visible {
+  transform: scale(1.15);
+  outline: none;
+}
+
+.rating-stars__star--on {
+  color: var(--gold);
+}
+
+.rating-stars--sm .rating-stars__star {
+  font-size: 1.1rem;
+}
+
+.rating-stars--lg .rating-stars__star {
+  font-size: 2.1rem;
+}
+
+.rating-stars__value {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.rating-stars__value strong {
+  font-size: 1.5rem;
+  color: var(--gold);
+  font-family: var(--font-display);
+}
+
+/* ---------- Read-only badge ---------- */
+.rating-stars--read {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.rating-stars--read b {
+  font-weight: 700;
+}
+
+.rating-stars--read small {
+  color: var(--gold-dim);
+  font-size: 0.72rem;
+}
+
+.rating-stars--read.rating-stars--lg {
+  font-size: 1.15rem;
+  padding: 6px 14px;
+}

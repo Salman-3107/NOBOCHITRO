@@ -92,21 +92,47 @@ async function removeFromWatchlist(req, res) {
   }
 }
 
-// GET /api/users/:id/watchlist  (public)
+// GET /api/users/:id/watchlist  (optional auth)
+// You always see your own. Someone else's is only readable if they set that
+// list to Public -- otherwise 403, even though the URL is guessable. Changing
+// the :id in the address bar is the exact attack this blocks.
 async function getWatchlist(req, res) {
   const userId = Number(req.params.id);
+  const viewerId = req.user ? req.user.userId : null;
+
+  if (!Number.isInteger(userId) || userId < 1) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
 
   let connection;
   try {
     connection = await getPool().getConnection();
+
+    const listResult = await connection.execute(
+      `SELECT ListID, Visibility FROM BucketList
+       WHERE UserID = :userId AND ListType = 'System-Watchlist'`,
+      { userId }
+    );
+
+    // No watchlist row yet just means they have never added anything.
+    if (listResult.rows.length === 0) {
+      return res.json([]);
+    }
+
+    const list = listResult.rows[0];
+    const isOwner = viewerId === userId;
+
+    if (!isOwner && list.VISIBILITY !== 'Public') {
+      return res.status(403).json({ error: "This user's watchlist is private" });
+    }
+
     const result = await connection.execute(
       `SELECT m.MovieID, m.Title, m.ReleaseYear, m.PosterURL, bli.DateAdded
        FROM BucketListItem bli
-       JOIN BucketList bl ON bl.ListID = bli.ListID
        JOIN Movie m ON m.MovieID = bli.MovieID
-       WHERE bl.UserID = :userId AND bl.ListType = 'System-Watchlist'
+       WHERE bli.ListID = :listId
        ORDER BY bli.DateAdded DESC`,
-      { userId }
+      { listId: list.LISTID }
     );
     res.json(result.rows);
   } catch (err) {
@@ -180,9 +206,18 @@ async function getMyLists(req, res) {
   }
 }
 
-// GET /api/bucket-lists/:id  (public -- visibility is not yet enforced, see note below)
+// GET /api/bucket-lists/:id  (optional auth)
+// Object-level check: owning the list is what grants access, not merely
+// knowing its id. A Private list belonging to someone else is 403 even for
+// a logged-in user, and 403 for an anonymous one -- incrementing :id through
+// /bucket-lists/1, /2, /3 reveals nothing.
 async function getListDetail(req, res) {
   const listId = Number(req.params.id);
+  const viewerId = req.user ? req.user.userId : null;
+
+  if (!Number.isInteger(listId) || listId < 1) {
+    return res.status(400).json({ error: 'Invalid list id' });
+  }
 
   let connection;
   try {
@@ -196,6 +231,11 @@ async function getListDetail(req, res) {
       return res.status(404).json({ error: 'List not found' });
     }
 
+    const list = listResult.rows[0];
+    if (list.USERID !== viewerId && list.VISIBILITY !== 'Public') {
+      return res.status(403).json({ error: 'This list is private' });
+    }
+
     const itemsResult = await connection.execute(
       `SELECT m.MovieID, m.Title, m.ReleaseYear, m.PosterURL, bli.DateAdded
        FROM BucketListItem bli
@@ -205,7 +245,7 @@ async function getListDetail(req, res) {
       { listId }
     );
 
-    res.json({ ...listResult.rows[0], items: itemsResult.rows });
+    res.json({ ...list, items: itemsResult.rows });
   } catch (err) {
     console.error('Get list detail error:', err);
     res.status(500).json({ error: 'Failed to fetch list' });

@@ -7,6 +7,8 @@ export default function AuthModal({ initialMode = 'signin', onClose, onAuthentic
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'error' | 'registered'
   const [errorMessage, setErrorMessage] = useState('');
+  // Which input the server blamed, if it named one ('username' | 'email' | null).
+  const [errorField, setErrorField] = useState(null);
 
   // Close on Escape, for anyone navigating by keyboard.
   useEffect(() => {
@@ -18,11 +20,20 @@ export default function AuthModal({ initialMode = 'signin', onClose, onAuthentic
   }, [onClose]);
 
   function updateField(field) {
-    return (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    return (e) => {
+      setForm((prev) => ({ ...prev, [field]: e.target.value }));
+      // Typing in the box the server complained about clears the complaint --
+      // otherwise the red ring sticks around while the user is fixing it.
+      if (errorField === field) {
+        setErrorField(null);
+        setStatus('idle');
+        setErrorMessage('');
+      }
+    };
   }
 
   function switchMode(nextMode) {
-    setMode(nextMode); setStatus('idle'); setErrorMessage('');
+    setMode(nextMode); setStatus('idle'); setErrorMessage(''); setErrorField(null);
     // Clear the username, email, and password when switching tabs 
     setForm({ username: '', email: '', password: '' });
   }
@@ -31,6 +42,7 @@ export default function AuthModal({ initialMode = 'signin', onClose, onAuthentic
       e.preventDefault();
       setStatus('loading');
       setErrorMessage('');
+      setErrorField(null);
 
       try {
         if (mode === 'register') {
@@ -54,6 +66,7 @@ export default function AuthModal({ initialMode = 'signin', onClose, onAuthentic
       } catch (err) {
         setStatus('error');
         setErrorMessage(err.message);
+        setErrorField(err.field || null);
       }
     }
 
@@ -93,7 +106,8 @@ export default function AuthModal({ initialMode = 'signin', onClose, onAuthentic
             <label className="field">
               <span className="field__label">Username</span>
               <input
-                className="field__input"
+                className={`field__input ${errorField === 'username' ? 'field__input--invalid' : ''}`}
+                aria-invalid={errorField === 'username'}
                 type="text"
                 autoComplete="username"
                 autoFocus
@@ -108,7 +122,8 @@ export default function AuthModal({ initialMode = 'signin', onClose, onAuthentic
               <label className="field">
                 <span className="field__label">Email</span>
                 <input
-                  className="field__input"
+                  className={`field__input ${errorField === 'email' ? 'field__input--invalid' : ''}`}
+                  aria-invalid={errorField === 'email'}
                   type="email"
                   autoComplete="email"
                   required

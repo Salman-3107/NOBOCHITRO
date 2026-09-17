@@ -1,0 +1,51 @@
+.skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--surface) 0%,
+    var(--surface-hover) 40%,
+    var(--surface) 80%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  0% { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-card__poster {
+  width: 100%;
+  /* Same 2:3 ratio as a real poster, so nothing shifts on load. */
+  aspect-ratio: var(--poster-ratio);
+  border-radius: var(--radius);
+}
+
+.skeleton-row {
+  display: flex;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.skeleton-row .skeleton-card {
+  flex: 0 0 160px;
+}
+
+.skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+@media (max-width: 640px) {
+  .skeleton-row .skeleton-card {
+    flex: 0 0 130px;
+  }
+}

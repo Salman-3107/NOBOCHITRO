@@ -1,0 +1,584 @@
+.passport-page {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.passport-wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.passport-hero__eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+}
+
+.passport-hero h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  font-weight: 600;
+}
+
+.passport-hero span {
+  color: var(--text-muted);
+  font-size: 0.93rem;
+}
+
+/* ---------- The booklet ---------- */
+.passport-book {
+  position: relative;
+  padding: 28px 30px 26px 44px;
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse at top left, rgba(232, 181, 61, 0.07), transparent 60%),
+    var(--panel);
+  overflow: hidden;
+}
+
+/* The stitched spine down the left edge, to sell the "booklet" idea. */
+.passport-book__spine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 14px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--gold-dim) 0 8px,
+    transparent 8px 18px
+  );
+  opacity: 0.45;
+}
+
+.passport-book__id {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.passport-book__photo {
+  width: 62px;
+  height: 62px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gold-dim);
+  background: var(--surface);
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+}
+
+.passport-book__holder p {
+  margin: 0 0 2px;
+  font-size: 0.64rem;
+  letter-spacing: 0.22em;
+  color: var(--text-faint);
+}
+
+.passport-book__holder h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.passport-book__holder small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.passport-book__seal {
+  margin-left: auto;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--gold-dim);
+  border-radius: 50%;
+  color: var(--gold);
+  font-size: 1.4rem;
+  transform: rotate(-12deg);
+  opacity: 0.75;
+}
+
+.passport-book__figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 18px;
+  margin: 22px 0 0;
+}
+
+.passport-book__figures dt {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
+.passport-book__figures dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.passport-book__gold {
+  color: var(--gold);
+}
+
+.passport-book__notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.passport-book__notes strong {
+  color: var(--text);
+  margin-left: 4px;
+}
+
+/* ---------- Stamps ---------- */
+.passport-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.passport-section-heading p {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+}
+
+.passport-section-heading h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.passport-stamps__count {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.stamp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+/* ---------- Flag rendering (shared) ---------- */
+.flag-img {
+  display: block;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.flag-glyph {
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+/* ---------- Stamps ---------- */
+.stamp {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 16px 12px 14px;
+  cursor: pointer;
+  overflow: hidden;
+  /* Double border + slight rotation reads as an ink stamp pressed into
+     the page rather than another rectangular card. */
+  border: 2px dashed var(--gold-dim);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  transform: rotate(-1.2deg);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  animation: stamp-press 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+}
+
+/* The stamp lands on the page: oversized and tilted, then settling. */
+@keyframes stamp-press {
+  0%   { opacity: 0; transform: rotate(-9deg) scale(1.5); }
+  70%  { opacity: 1; transform: rotate(0.6deg) scale(0.97); }
+  100% { opacity: 1; transform: rotate(-1.2deg) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp { animation: none; }
+}
+
+.stamp:nth-child(even) {
+  transform: rotate(1.4deg);
+}
+
+.stamp:nth-child(even) {
+  animation-name: stamp-press-alt;
+}
+
+@keyframes stamp-press-alt {
+  0%   { opacity: 0; transform: rotate(9deg) scale(1.5); }
+  70%  { opacity: 1; transform: rotate(-0.6deg) scale(0.97); }
+  100% { opacity: 1; transform: rotate(1.4deg) scale(1); }
+}
+
+/* The big faded flag behind everything. Pinned with inset:0 and covering the
+   whole button, then washed out so the label on top stays readable. */
+.stamp__wash {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  opacity: 0.16;
+  filter: saturate(1.4);
+  transform: scale(1.35);
+  transition: opacity 0.18s ease, transform 0.35s ease;
+  pointer-events: none;
+}
+
+.stamp:hover .stamp__wash,
+.stamp:focus-visible .stamp__wash,
+.stamp--active .stamp__wash {
+  opacity: 0.32;
+  transform: scale(1.5);
+}
+
+/* The crisp flag itself, in a gold ring like a wax seal. */
+.stamp__flagframe {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--gold-dim);
+  background: var(--panel);
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.stamp__flagframe .flag-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.stamp:hover .stamp__flagframe,
+.stamp:focus-visible .stamp__flagframe {
+  border-color: var(--gold);
+  transform: scale(1.06);
+}
+
+.stamp__country,
+.stamp__count,
+.stamp__rating {
+  position: relative; /* above .stamp__wash */
+}
+
+.stamp:hover,
+.stamp:focus-visible {
+  transform: rotate(0deg) translateY(-4px);
+  border-color: var(--gold);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  outline: none;
+}
+
+.stamp--active {
+  transform: rotate(0deg);
+  border-style: solid;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold-soft), 0 10px 26px rgba(0, 0, 0, 0.32);
+}
+
+.stamp__country {
+  font-size: 0.88rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.stamp__count {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.stamp__rating {
+  font-size: 0.72rem;
+  color: var(--gold);
+}
+
+/* ---------- Open stamp: flag banner + the films behind it ---------- */
+.stamp-detail {
+  margin-top: 18px;
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+  animation: stamp-detail-in 0.28s ease backwards;
+}
+
+@keyframes stamp-detail-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-detail { animation: none; }
+}
+
+.stamp-detail__banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+  overflow: hidden;
+  border-bottom: 1px dashed var(--border);
+}
+
+/* Full-width flag bled across the banner, dimmed behind a gradient so the
+   country name stays legible on light flags (Japan) and dark ones alike. */
+.stamp-detail__wash {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  object-fit: cover;
+  opacity: 0.3;
+  filter: saturate(1.3);
+  transform: scale(1.1);
+  pointer-events: none;
+}
+
+.stamp-detail__banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, var(--panel) 12%, rgba(0, 0, 0, 0.35) 55%, transparent);
+  pointer-events: none;
+}
+
+.stamp-detail__ident {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stamp-detail__flagframe {
+  width: 74px;
+  height: 74px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  background: var(--panel);
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+.stamp-detail__flagframe .flag-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.stamp-detail__eyebrow {
+  margin: 0 0 2px;
+  font-size: 0.64rem;
+  letter-spacing: 0.22em;
+  color: var(--gold);
+}
+
+.stamp-detail h3 {
+  margin: 0 0 3px;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.stamp-detail__meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.stamp-detail__meta strong {
+  color: var(--gold);
+}
+
+.stamp-detail__close {
+  position: relative;
+  z-index: 1;
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.stamp-detail__close:hover {
+  border-color: var(--gold);
+  color: var(--text);
+}
+
+.stamp-detail__body {
+  padding: 18px 22px;
+}
+
+.stamp-detail__note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.stamp-films {
+  list-style: none;
+  margin: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.stamp-film {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.stamp-film:hover,
+.stamp-film:focus-visible {
+  border-color: var(--gold);
+  background: var(--surface-hover);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.stamp-film__poster {
+  width: 46px;
+  height: 66px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.stamp-film__poster--blank {
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  border: 1px dashed var(--border);
+}
+
+.stamp-film__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stamp-film__text strong {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.stamp-film__text small {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.stamp-film__date {
+  color: var(--text-faint) !important;
+}
+
+.stamp-film__rating {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .passport-wrap {
+    padding: 20px 14px 64px;
+    gap: 20px;
+  }
+
+  .passport-book {
+    padding: 20px 18px 20px 30px;
+  }
+
+  .passport-book__seal {
+    display: none;
+  }
+
+  .stamp-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stamp-detail__banner {
+    padding: 16px;
+  }
+
+  .stamp-detail__flagframe {
+    width: 56px;
+    height: 56px;
+  }
+
+  .stamp-detail h3 {
+    font-size: 1.2rem;
+  }
+
+  .stamp-films {
+    grid-template-columns: 1fr;
+  }
+}

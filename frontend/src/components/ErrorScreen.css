@@ -1,0 +1,68 @@
+.error-screen {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding: 48px 24px;
+}
+
+.error-screen__code {
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 12vw, 6rem);
+  line-height: 1;
+  color: var(--accent-deep);
+  letter-spacing: 0.04em;
+}
+
+.error-screen__reel {
+  font-size: 1.8rem;
+  opacity: 0.7;
+  margin-top: -8px;
+}
+
+.error-screen__title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 3.5vw, 1.9rem);
+  font-weight: 600;
+}
+
+.error-screen__message {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--text-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.error-screen__detail {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-faint);
+  font-size: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  max-width: 60ch;
+  overflow-wrap: anywhere;
+}
+
+.error-screen__action {
+  margin-top: 10px;
+  padding: 11px 26px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.error-screen__action:hover {
+  background: var(--accent-bright);
+}

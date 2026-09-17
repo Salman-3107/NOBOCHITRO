@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
 const { initPool, closePool } = require('./db');
 
 const authRoutes = require('./routes/authRoutes');
@@ -19,10 +20,31 @@ const recommendationRoutes = require('./routes/recommendationRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Only the dev frontend may call this API from a browser. `cors()` with no
+// arguments answers every origin, which would let any page on the internet
+// make authenticated requests on a logged-in user's behalf.
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:4173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // No Origin header at all means a non-browser client (curl, Postman).
+      // Those are allowed through -- they still need a valid bearer token,
+      // and being able to test endpoints directly is part of the brief.
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+      callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
+  })
+);
+
+app.use(express.json({ limit: '1mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
@@ -45,10 +67,40 @@ app.use('/api', recommendationRoutes);
 app.use('/api', leaderboardRoutes);
 app.use('/api', activityRoutes);
 app.use('/api', notificationRoutes);
+app.use('/api', statsRoutes);
 
 // Catch-all 404 for unmatched API routes
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
+});
+
+// Central error handler. Without it, malformed JSON bodies and rejected file
+// uploads fall through to Express's default handler, which replies with an
+// HTML stack trace -- the frontend then fails to parse it and shows
+// "Something went wrong" instead of the real reason.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Request body is not valid JSON' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large' });
+  }
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'Image must be 5 MB or smaller' });
+    }
+    return res.status(400).json({ error: 'Upload rejected: ' + err.message });
+  }
+  if (err.message && err.message.startsWith('Only image files')) {
+    return res.status(400).json({ error: err.message });
+  }
+  if (err.message && err.message.includes('not allowed by CORS')) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Unexpected server error' });
 });
 
 const PORT = process.env.PORT || 5000;

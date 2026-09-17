@@ -1,34 +1,42 @@
 const jwt = require('jsonwebtoken');
 const { getPool } = require('../db');
 
-// Reads "Authorization: Bearer <token>", verifies it, and attaches
-// the decoded payload (userId, username, jti, exp) to req.user.
-// Also rejects tokens whose jti has been explicitly revoked via
-// logout, even though the signature and expiry are still valid --
-// that's what makes logout an actual server-side session end, not
-// just the frontend forgetting its copy of the token.
-async function requireAuth(req, res, next) {
-  const header = req.headers.authorization;
+// Fail fast at boot rather than at the first login: a missing or
+// throwaway JWT_SECRET means every token we issue is forgeable.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error(
+    'JWT_SECRET is missing or too short. Set a random string of at least 32 characters in backend/.env'
+  );
+}
 
-  if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or malformed Authorization header' });
-  }
+// Pulls "Authorization: Bearer <token>" out of the request.
+// Returns null when the header is absent or malformed.
+function readBearerToken(req) {
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Bearer ')) return null;
 
-  const token = header.split(' ')[1];
+  const token = header.slice('Bearer '.length).trim();
+  return token.length > 0 ? token : null;
+}
 
+// Verifies the signature and expiry, then checks the jti against the
+// RevokedToken table. A token is only accepted if BOTH pass.
+//
+// Every token we issue carries a jti, so a token without one is either
+// forged or predates the logout feature -- either way it can never be
+// revoked, so we reject it outright instead of waving it through.
+// Anyone still holding one simply logs in again and gets a modern token.
+async function verifyToken(token) {
   let payload;
   try {
-    payload = jwt.verify(token, process.env.JWT_SECRET);
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    payload = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return { ok: false, status: 401, error: 'Invalid or expired token' };
   }
 
-  // Tokens issued before the jti/logout feature existed have nothing to
-  // check against -- let them through on signature+expiry alone, same
-  // as before. New tokens always have a jti.
-  if (!payload.jti) {
-    req.user = payload;
-    return next();
+  if (!payload.jti || !payload.userId) {
+    return { ok: false, status: 401, error: 'Invalid or expired token' };
   }
 
   let connection;
@@ -39,46 +47,59 @@ async function requireAuth(req, res, next) {
       { jti: payload.jti }
     );
     if (result.rows.length > 0) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+      // Signature and expiry are still fine, but the user logged out.
+      return { ok: false, status: 401, error: 'Session has ended. Please log in again.' };
     }
   } catch (err) {
     console.error('Token revocation check error:', err);
-    return res.status(500).json({ error: 'Failed to verify session' });
+    return { ok: false, status: 500, error: 'Failed to verify session' };
   } finally {
     if (connection) await connection.close();
   }
 
-  req.user = payload;
+  return { ok: true, payload };
+}
+
+// Hard gate. 401 on anything that isn't a live, unrevoked token.
+async function requireAuth(req, res, next) {
+  const token = readBearerToken(req);
+  if (!token) {
+    return res.status(401).json({ error: 'Missing or malformed Authorization header' });
+  }
+
+  const result = await verifyToken(token);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  req.user = result.payload;
   next();
 }
 
-// Like requireAuth, but never blocks the request. If a valid token
-// is present, req.user gets set; otherwise req.user stays undefined
-// and the request continues as an anonymous view. Useful for routes
-// like "view a user's journal" that show more to the owner than to
-// everyone else.
-function optionalAuth(req, res, next) {
-  const header = req.headers.authorization;
+// Soft gate for routes that show more to the owner than to the public
+// (a user's journal, passport, activity). A valid token sets req.user;
+// anything else -- absent, expired, or REVOKED -- falls through as an
+// anonymous viewer rather than an authenticated one.
+//
+// The revocation check matters here as much as in requireAuth: without
+// it, a logged-out token would keep unlocking the owner-only view of
+// someone's private journal, which is exactly what logout is meant to stop.
+async function optionalAuth(req, res, next) {
+  const token = readBearerToken(req);
+  if (!token) return next();
 
-  if (!header || !header.startsWith('Bearer ')) {
-    return next();
-  }
-
-  const token = header.split(' ')[1];
-
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-  } catch (err) {
-    // Invalid/expired token on an optional route -- just treat as anonymous.
+  const result = await verifyToken(token);
+  if (result.ok) {
+    req.user = result.payload;
   }
   next();
 }
 
 // Must run AFTER requireAuth (needs req.user.userId already set).
-// Deliberately re-checks the database instead of trusting an
-// "isAdmin" flag baked into the JWT -- a token issued before someone
-// was promoted (or after they were demoted) would otherwise still
-// carry the old, stale permission for up to 7 days.
+// Deliberately re-checks the database instead of trusting an "isAdmin"
+// flag baked into the JWT -- a token issued before someone was promoted
+// (or after they were demoted) would otherwise still carry the old,
+// stale permission for up to 7 days.
 async function requireAdmin(req, res, next) {
   let connection;
   try {
@@ -100,4 +121,4 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, optionalAuth, requireAdmin };
+module.exports = { requireAuth, optionalAuth, requireAdmin, JWT_SECRET };

@@ -135,3 +135,65 @@
     display: none;
   }
 }
+
+/* ---------- Mobile navigation ----------
+   The nav was desktop-only; below 1024px it now collapses behind a burger
+   and slides down as a full-width drawer. */
+.app-header__burger {
+  display: none;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .app-header {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .app-header__burger {
+    display: block;
+    order: -1;
+  }
+
+  .app-header__nav {
+    display: none;
+    order: 10;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .app-header__nav--open {
+    display: flex;
+  }
+
+  .app-header__nav-link {
+    text-align: left;
+    padding: 11px 6px;
+    font-size: 0.95rem;
+  }
+
+  .app-header__search {
+    order: 5;
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-header__account-button b {
+    display: none;
+  }
+
+  .app-header__wordmark {
+    font-size: 1rem;
+  }
+}

@@ -175,6 +175,14 @@
   box-shadow: 0 0 0 3px rgba(189, 38, 56, 0.2);
 }
 
+/* The server told us exactly which box is wrong -- say so on the box itself,
+   not only in the sentence under the form. */
+.field__input--invalid,
+.field__input--invalid:focus {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.18);
+}
+
 .auth-modal__error {
   margin: 0;
   font-size: 13px;

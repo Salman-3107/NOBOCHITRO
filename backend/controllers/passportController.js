@@ -109,4 +109,67 @@ async function getMoviePassport(req, res) {
   }
 }
 
-module.exports = { getMoviePassport };
+// GET /api/users/:id/passport/countries/:country/movies  (optional auth)
+// Backs the "which films stamped this country?" drawer on the passport page.
+// Same privacy rule as getMoviePassport: the owner sees every entry, a
+// visitor only sees the Public ones, so the counts on the stamp and the
+// films listed under it always agree with each other.
+async function getPassportCountryMovies(req, res) {
+  const profileUserId = Number(req.params.id);
+  const country = decodeURIComponent(req.params.country || '').trim();
+
+  if (!Number.isInteger(profileUserId) || profileUserId < 1) {
+    return res.status(400).json({ error: 'Invalid user id' });
+  }
+  if (!country || country.length > 50) {
+    return res.status(400).json({ error: 'Invalid country' });
+  }
+
+  const viewerId = req.user ? req.user.userId : null;
+  const isOwner = viewerId === profileUserId;
+  const privacyFilter = isOwner ? '' : `AND j.Privacy = 'Public'`;
+
+  let connection;
+  try {
+    connection = await getPool().getConnection();
+
+    // Grouped by movie, not by journal entry: a film watched three times is
+    // one card with WatchCount 3, not three identical cards.
+    const result = await connection.execute(
+      `SELECT m.MovieID, m.Title, m.ReleaseYear, m.PosterURL, m.Language,
+              COUNT(j.JournalID) AS WatchCount,
+              MAX(j.WatchDate) AS LastWatched,
+              MAX(r.RatingValue) AS MyRating
+       FROM JournalEntry j
+       JOIN Movie m ON m.MovieID = j.MovieID
+       LEFT JOIN Review r ON r.MovieID = j.MovieID AND r.UserID = j.UserID
+       WHERE j.UserID = :profileUserId
+         AND UPPER(m.Country) = UPPER(:country) ${privacyFilter}
+       GROUP BY m.MovieID, m.Title, m.ReleaseYear, m.PosterURL, m.Language
+       ORDER BY MAX(j.WatchDate) DESC NULLS LAST, m.Title`,
+      { profileUserId, country }
+    );
+
+    res.json({
+      userId: profileUserId,
+      country,
+      movies: result.rows.map((row) => ({
+        movieId: row.MOVIEID,
+        title: row.TITLE,
+        releaseYear: row.RELEASEYEAR,
+        posterUrl: row.POSTERURL,
+        language: row.LANGUAGE,
+        watchCount: row.WATCHCOUNT,
+        lastWatched: row.LASTWATCHED,
+        myRating: row.MYRATING,
+      })),
+    });
+  } catch (err) {
+    console.error('Get passport country movies error:', err);
+    res.status(500).json({ error: 'Failed to load films for this country' });
+  } finally {
+    if (connection) await connection.close();
+  }
+}
+
+module.exports = { getMoviePassport, getPassportCountryMovies };

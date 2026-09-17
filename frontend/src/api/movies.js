@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, apiUpload } from './client';
 
 export function listMovies({ genre, year, search, sort } = {}) {
   const params = new URLSearchParams();
@@ -96,6 +96,9 @@ export function getFollowing(userId) { return apiRequest(`/users/${userId}/follo
 export function followUser(userId) { return apiRequest(`/users/${userId}/follow`, { method: 'POST' }); }
 export function unfollowUser(userId) { return apiRequest(`/users/${userId}/follow`, { method: 'DELETE' }); }
 export function getPassport(userId) { return apiRequest(`/users/${userId}/passport`); }
+export function getPassportCountryMovies(userId, country) {
+  return apiRequest(`/users/${userId}/passport/countries/${encodeURIComponent(country)}/movies`);
+}
 export function listChallenges() { return apiRequest('/challenges'); }
 export function getUserChallenges(userId) { return apiRequest(`/users/${userId}/challenges`); }
 export function joinChallenge(challengeId) { return apiRequest(`/challenges/${challengeId}/join`, { method: 'POST' }); }
@@ -103,13 +106,12 @@ export function createJournalEntry(movieId, payload) { return apiRequest(`/movie
 export function updateMyProfile(payload) { return apiRequest('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) }); }
 export function listNotifications() { return apiRequest('/notifications'); }
 export function markAllNotificationsRead() { return apiRequest('/notifications/read-all', { method: 'PUT' }); }
-export async function uploadProfileMedia({ profilePicture, coverPicture }) {
+export function uploadProfileMedia({ profilePicture, coverPicture }) {
   const data = new FormData();
   if (profilePicture) data.append('profilePicture', profilePicture);
   if (coverPicture) data.append('coverPicture', coverPicture);
-  const token = localStorage.getItem('nobochitro_token');
-  const response = await fetch('http://localhost:5000/api/auth/profile/media', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: data });
-  const responseData = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(responseData.error || 'Could not upload the image.');
-  return responseData;
+  // Goes through apiUpload rather than a hand-rolled fetch, so it picks up the
+  // same bearer token, the same API base URL and the same 401 handling as
+  // every other call instead of quietly diverging from them.
+  return apiUpload('/auth/profile/media', data);
 }
