@@ -1,6 +1,7 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
-const { createNotification } = require('./notificationController');
+const { logAdminAction } = require('../utils/adminAudit');
+const { hasChallengeStatus } = require('../utils/adminSchema');
 
 // PUT /api/movies/:id  (admin)
 // body: any subset of { title, releaseYear, runtime, language, country,
@@ -65,13 +66,25 @@ async function updateMovie(req, res) {
         trailerUrl: trailerUrl || null,
         boxOfficeCollection: boxOfficeCollection || null,
         movieId,
-      },
-      { autoCommit: true }
+      }
     );
 
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Movie not found' });
     }
+
+    // autoCommit was dropped from the UPDATE above so the audit row joins the
+    // same transaction: if the log write and the edit can't both land, neither
+    // should. logAdminAction never throws, so this cannot block the edit.
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'movie.update',
+      targetType: 'Movie',
+      targetId: movieId,
+      targetLabel: title || null,
+    });
+    await connection.commit();
+
     res.json({ message: 'Movie updated' });
   } catch (err) {
     console.error('Update movie error:', err);
@@ -88,14 +101,34 @@ async function deleteMovie(req, res) {
   let connection;
   try {
     connection = await getPool().getConnection();
+
+    // Read the title BEFORE the delete -- afterwards there is nothing left to
+    // read, and "deleted movie 12" is a useless line in an audit log.
+    const existing = await connection.execute(
+      `SELECT Title, ReleaseYear FROM Movie WHERE MovieID = :movieId`,
+      { movieId }
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Movie not found' });
+    }
+
     const result = await connection.execute(
       `DELETE FROM Movie WHERE MovieID = :movieId`,
-      { movieId },
-      { autoCommit: true }
+      { movieId }
     );
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Movie not found' });
     }
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'movie.delete',
+      targetType: 'Movie',
+      targetId: movieId,
+      targetLabel: `${existing.rows[0].TITLE} (${existing.rows[0].RELEASEYEAR})`,
+    });
+    await connection.commit();
+
     res.json({ message: 'Movie deleted' });
   } catch (err) {
     // ORA-02292: a child row exists somewhere WITHOUT cascade delete set up
@@ -125,10 +158,20 @@ async function createGenre(req, res) {
     const result = await connection.execute(
       `INSERT INTO Genre (GenreID, GenreName) VALUES (seq_genre.NEXTVAL, :genreName)
        RETURNING GenreID INTO :newId`,
-      { genreName, newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } },
-      { autoCommit: true }
+      { genreName, newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
-    res.status(201).json({ message: 'Genre created', genreId: result.outBinds.newId[0] });
+
+    const genreId = result.outBinds.newId[0];
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'genre.create',
+      targetType: 'Genre',
+      targetId: genreId,
+      targetLabel: genreName,
+    });
+    await connection.commit();
+
+    res.status(201).json({ message: 'Genre created', genreId });
   } catch (err) {
     if (err.errorNum === 1) {
       return res.status(409).json({ error: 'Genre already exists' });
@@ -159,10 +202,20 @@ async function createPerson(req, res) {
         fullName,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: true }
+      }
     );
-    res.status(201).json({ message: 'Person created', personId: result.outBinds.newId[0] });
+
+    const personId = result.outBinds.newId[0];
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'person.create',
+      targetType: 'Person',
+      targetId: personId,
+      targetLabel: fullName,
+    });
+    await connection.commit();
+
+    res.status(201).json({ message: 'Person created', personId });
   } catch (err) {
     console.error('Create person error:', err);
     res.status(500).json({ error: 'Failed to create person' });
@@ -190,9 +243,18 @@ async function addCredit(req, res) {
     await connection.execute(
       `INSERT INTO MovieCredit (MovieID, PersonID, RoleType, CharacterName)
        VALUES (:movieId, :personId, :roleType, :characterName)`,
-      { movieId, personId, roleType, characterName: characterName || null },
-      { autoCommit: true }
+      { movieId, personId, roleType, characterName: characterName || null }
     );
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'credit.create',
+      targetType: 'Movie',
+      targetId: movieId,
+      details: `PersonID ${personId} credited as ${roleType}`,
+    });
+    await connection.commit();
+
     res.status(201).json({ message: 'Credit added' });
   } catch (err) {
     if (err.errorNum === 2291) {
@@ -225,9 +287,24 @@ async function createChallenge(req, res) {
   let connection;
   try {
     connection = await getPool().getConnection();
+
+    // A new challenge is a DRAFT. It used to notify every account the instant
+    // the row was inserted, which meant there was no way to write one, check
+    // it, and then announce it -- and no way to fix a typo without everyone
+    // having already seen it. The broadcast now lives in
+    // POST /api/admin/challenges/:id/publish, guarded against double-sending.
+    //
+    // Status only exists once admin_dashboard_extensions.sql has run. Without
+    // it the column is omitted from the INSERT and behaviour matches the old
+    // one: the challenge is live as soon as its StartDate arrives.
+    const lifecycleSupported = await hasChallengeStatus(connection);
+
+    const statusColumn = lifecycleSupported ? ', Status' : '';
+    const statusValue = lifecycleSupported ? ", 'Draft'" : '';
+
     const result = await connection.execute(
-      `INSERT INTO Challenge (ChallengeID, Title, Description, CriteriaType, CriteriaValue, TargetCount, XPReward, StartDate, EndDate)
-       VALUES (seq_challenge.NEXTVAL, :title, :description, :criteriaType, :criteriaValue, :targetCount, :xpReward, :startDate, :endDate)
+      `INSERT INTO Challenge (ChallengeID, Title, Description, CriteriaType, CriteriaValue, TargetCount, XPReward, StartDate, EndDate${statusColumn})
+       VALUES (seq_challenge.NEXTVAL, :title, :description, :criteriaType, :criteriaValue, :targetCount, :xpReward, :startDate, :endDate${statusValue})
        RETURNING ChallengeID INTO :newId`,
       {
         title,
@@ -239,16 +316,31 @@ async function createChallenge(req, res) {
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: false }
+      }
     );
-    const recipients = await connection.execute('SELECT UserID FROM AppUser');
-    for (const recipient of recipients.rows) {
-      await createNotification(connection, recipient.USERID, 'WeeklyChallenge', `New weekly challenge: ${title}`, result.outBinds.newId[0]);
-    }
+
+    const challengeId = result.outBinds.newId[0];
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'challenge.create',
+      targetType: 'Challenge',
+      targetId: challengeId,
+      targetLabel: title,
+      details: lifecycleSupported ? 'Saved as draft' : 'Created (published immediately)',
+    });
+
     await connection.commit();
-    res.status(201).json({ message: 'Challenge created', challengeId: result.outBinds.newId[0] });
+
+    res.status(201).json({
+      message: lifecycleSupported
+        ? 'Challenge saved as a draft. Publish it when you are ready to notify users.'
+        : 'Challenge created',
+      challengeId,
+      status: lifecycleSupported ? 'Draft' : 'Published',
+    });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Create challenge error:', err);
     res.status(500).json({ error: 'Failed to create challenge' });
   } finally {
@@ -285,12 +377,21 @@ async function updateChallenge(req, res) {
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         challengeId,
-      },
-      { autoCommit: true }
+      }
     );
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Challenge not found' });
     }
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'challenge.update',
+      targetType: 'Challenge',
+      targetId: challengeId,
+      targetLabel: title || null,
+    });
+    await connection.commit();
+
     res.json({ message: 'Challenge updated' });
   } catch (err) {
     console.error('Update challenge error:', err);
@@ -309,12 +410,20 @@ async function deleteChallenge(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM Challenge WHERE ChallengeID = :challengeId`,
-      { challengeId },
-      { autoCommit: true }
+      { challengeId }
     );
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Challenge not found' });
     }
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'challenge.delete',
+      targetType: 'Challenge',
+      targetId: challengeId,
+    });
+    await connection.commit();
+
     res.json({ message: 'Challenge deleted' });
   } catch (err) {
     console.error('Delete challenge error:', err);
@@ -335,12 +444,20 @@ async function moderateDeletePost(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM Post WHERE PostID = :postId`,
-      { postId },
-      { autoCommit: true }
+      { postId }
     );
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Post not found' });
     }
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'post.delete',
+      targetType: 'Post',
+      targetId: postId,
+    });
+    await connection.commit();
+
     res.json({ message: 'Post removed by moderator' });
   } catch (err) {
     console.error('Moderate delete post error:', err);
@@ -359,12 +476,20 @@ async function moderateDeleteComment(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM PostComment WHERE CommentID = :commentId`,
-      { commentId },
-      { autoCommit: true }
+      { commentId }
     );
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Comment not found' });
     }
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'comment.delete',
+      targetType: 'Comment',
+      targetId: commentId,
+    });
+    await connection.commit();
+
     res.json({ message: 'Comment removed by moderator' });
   } catch (err) {
     console.error('Moderate delete comment error:', err);
@@ -377,10 +502,15 @@ async function moderateDeleteComment(req, res) {
 // DELETE /api/admin/reviews/:id  (admin) -- :id here is the review's UserID_MovieID pair, passed as query params
 // Reviews have a composite key (UserID, MovieID), not a single ID, so this takes both.
 async function moderateDeleteReview(req, res) {
-  const { userId, movieId } = req.query;
+  // Review's primary key is (UserID, MovieID), so there is no single :id to
+  // put in the path. Both shapes are accepted: the original query-param form
+  // (DELETE /admin/reviews?userId=&movieId=) that existing callers use, and
+  // the friendlier /admin/reviews/:userId/:movieId the dashboard sends.
+  const userId = req.params.userId ?? req.query.userId;
+  const movieId = req.params.movieId ?? req.query.movieId;
 
   if (!userId || !movieId) {
-    return res.status(400).json({ error: 'userId and movieId query params are required' });
+    return res.status(400).json({ error: 'userId and movieId are both required' });
   }
 
   let connection;
@@ -388,12 +518,21 @@ async function moderateDeleteReview(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM Review WHERE UserID = :userId AND MovieID = :movieId`,
-      { userId: Number(userId), movieId: Number(movieId) },
-      { autoCommit: true }
+      { userId: Number(userId), movieId: Number(movieId) }
     );
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'Review not found' });
     }
+
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: 'review.delete',
+      targetType: 'Review',
+      targetId: Number(movieId),
+      details: `Review by UserID ${userId} on MovieID ${movieId}`,
+    });
+    await connection.commit();
+
     res.json({ message: 'Review removed by moderator' });
   } catch (err) {
     console.error('Moderate delete review error:', err);
@@ -460,12 +599,23 @@ async function setUserRole(req, res) {
 
     const result = await connection.execute(
       `UPDATE AppUser SET IsAdmin = :isAdmin WHERE UserID = :targetUserId`,
-      { isAdmin: isAdmin ? 1 : 0, targetUserId },
-      { autoCommit: true }
+      { isAdmin: isAdmin ? 1 : 0, targetUserId }
     );
     if (result.rowsAffected === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
+
+    // A privilege change is the single most important thing an audit log can
+    // record, so it is written in the same transaction as the change itself.
+    await logAdminAction(connection, {
+      adminId: req.user.userId,
+      action: isAdmin ? 'user.promote' : 'user.demote',
+      targetType: 'User',
+      targetId: targetUserId,
+      details: isAdmin ? 'Granted administrator privileges' : 'Revoked administrator privileges',
+    });
+    await connection.commit();
+
     res.json({ message: `User ${isAdmin ? 'promoted to admin' : 'demoted to regular user'}` });
   } catch (err) {
     console.error('Set user role error:', err);

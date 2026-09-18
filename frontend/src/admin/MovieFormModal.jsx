@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createMovie, updateMovie } from '../api/movies';
+import { setMovieGenres } from '../api/admin';
 import './MovieFormModal.css';
 
 const EMPTY_FORM = {
@@ -70,9 +71,16 @@ export default function MovieFormModal({ mode, movie, genres, onClose, onSaved }
 
     try {
       if (mode === 'create') {
+        // createMovie handles genreIds itself, in the same transaction as
+        // the INSERT.
         await createMovie(payload);
       } else {
         await updateMovie(movie.MOVIEID, payload);
+        // updateMovie only touches Movie's own columns -- it ignores
+        // genreIds entirely, which meant genre edits were silently dropped
+        // here. MovieGenre is a separate bridge table and needs its own
+        // call, which replaces the whole set for this movie.
+        await setMovieGenres(movie.MOVIEID, selectedGenreIds);
       }
       onSaved();
     } catch (err) {

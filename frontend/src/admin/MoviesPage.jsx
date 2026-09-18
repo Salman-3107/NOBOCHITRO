@@ -1,173 +1,267 @@
-import { useEffect, useState, useCallback } from 'react';
-import { listMovies, getMovie, deleteMovie, listGenres } from '../api/movies';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  listAdminMovies, getMovieFilters, getMovieDependencies, deleteAdminMovie,
+} from '../api/admin';
+import { getMovie } from '../api/movies';
 import MovieFormModal from './MovieFormModal';
-import './MoviesPage.css';
+import { useToast } from '../components/Toast';
+import { useAdminResource, useDebounced } from './hooks/useAdminResource';
+import {
+  PageHeader, DataTable, Pagination, TableSkeleton, ErrorState, EmptyState,
+  ConfirmModal, Thumb, formatNumber,
+} from './components/AdminUI';
 
+// The movie catalogue. Server-side paged, searched, filtered and sorted --
+// with a few thousand titles, pulling the whole table to show twenty rows is
+// the difference between a dashboard that feels instant and one that doesn't.
 export default function MoviesPage() {
-  const [movies, setMovies] = useState([]);
-  const [genres, setGenres] = useState([]);
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('loading'); // loading | ready | error
-  const [errorMessage, setErrorMessage] = useState('');
+  const toast = useToast();
+  const [urlParams] = useSearchParams();
 
-  const [formState, setFormState] = useState(null); // null | { mode: 'create' } | { mode: 'edit', movie }
-  const [deletingId, setDeletingId] = useState(null);
+  const [searchInput, setSearchInput] = useState(urlParams.get('search') || '');
+  const debouncedSearch = useDebounced(searchInput);
 
-  const loadMovies = useCallback(async (searchTerm) => {
-    setStatus('loading');
-    try {
-      const [movieRows, genreRows] = await Promise.all([listMovies({ search: searchTerm }), listGenres()]);
-      setMovies(movieRows);
-      setGenres(genreRows);
-      setStatus('ready');
-    } catch (err) {
-      setStatus('error');
-      setErrorMessage(err.message);
-    }
+  const [filterOptions, setFilterOptions] = useState(null);
+  const [formState, setFormState] = useState(null);   // null | { mode, movie? }
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const resource = useAdminResource(listAdminMovies, {
+    page: 1, limit: 20, sort: 'added', order: 'desc',
+    search: urlParams.get('search') || '',
+  });
+  const { params, data, status, errorMessage, setFilter, setPage, setSort, refresh } = resource;
+
+  // The dropdowns offer only what the catalogue actually contains, rather than
+  // a hard-coded country list that goes stale the moment a film is added.
+  useEffect(() => {
+    getMovieFilters().then(setFilterOptions).catch(() => setFilterOptions(null));
   }, []);
 
   useEffect(() => {
-    loadMovies('');
-  }, [loadMovies]);
-
-  function handleSearchSubmit(e) {
-    e.preventDefault();
-    loadMovies(search);
-  }
+    if (debouncedSearch !== params.search) setFilter({ search: debouncedSearch });
+    // Only the debounced term should drive a refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   async function openEdit(movieId) {
     try {
-      const fullMovie = await getMovie(movieId);
-      // getMovie returns MovieID etc. in the same uppercase-key shape the
-      // form expects, plus a `genres` array -- reuse it directly.
-      setFormState({ mode: 'edit', movie: { ...fullMovie, MOVIEID: fullMovie.MOVIEID ?? movieId } });
+      // getMovie returns the UPPERCASE-key shape (plus a `genres` array) that
+      // MovieFormModal already expects -- reused directly rather than
+      // reshaping the paginated row, which omits synopsis.
+      const full = await getMovie(movieId);
+      setFormState({ mode: 'edit', movie: { ...full, MOVIEID: full.MOVIEID ?? movieId } });
     } catch (err) {
-      alert(`Couldn't load movie details: ${err.message}`);
+      toast.error(`Couldn't load that movie: ${err.message}`);
     }
   }
 
-  async function handleDelete(movie) {
-    const confirmed = window.confirm(
-      `Delete "${movie.TITLE}" (${movie.RELEASEYEAR})? This can't be undone.`
-    );
-    if (!confirmed) return;
-
-    setDeletingId(movie.MOVIEID);
+  // The delete never fires straight from the button. The dependency counts are
+  // fetched first so the confirmation shows what the cascade will actually
+  // take -- reviews, journal entries, bucket lists -- instead of a vague
+  // "this cannot be undone".
+  async function askDelete(movie) {
+    setPendingDelete({ movie, impact: null });
     try {
-      await deleteMovie(movie.MOVIEID);
-      setMovies((prev) => prev.filter((m) => m.MOVIEID !== movie.MOVIEID));
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setDeletingId(null);
+      const dependencies = await getMovieDependencies(movie.movieId);
+      setPendingDelete({ movie, ...dependencies });
+    } catch {
+      setPendingDelete({ movie, cascades: [], detaches: [] });
     }
   }
 
-  function handleSaved() {
-    setFormState(null);
-    loadMovies(search);
+  async function confirmDelete() {
+    setDeleting(true);
+    try {
+      await deleteAdminMovie(pendingDelete.movie.movieId);
+      toast.success(`"${pendingDelete.movie.title}" deleted.`);
+      setPendingDelete(null);
+      refresh();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
+    }
   }
+
+  const columns = [
+    {
+      key: 'poster',
+      label: 'Poster',
+      render: (movie) => <Thumb src={movie.posterUrl} alt="" label={movie.title?.charAt(0)} />,
+    },
+    {
+      key: 'title',
+      label: 'Title',
+      sortable: true,
+      render: (movie) => (
+        <Link className="adm-link adm-table__strong" to={`/admin/movies/${movie.movieId}`}>
+          {movie.title}
+        </Link>
+      ),
+    },
+    { key: 'year', label: 'Year', sortable: true, render: (movie) => movie.releaseYear ?? '—' },
+    { key: 'runtime', label: 'Runtime', sortable: true, render: (movie) => (movie.runtime ? `${movie.runtime} min` : '—') },
+    { key: 'language', label: 'Language', render: (movie) => movie.language || '—' },
+    { key: 'country', label: 'Country', render: (movie) => movie.country || '—' },
+    {
+      key: 'rating',
+      label: 'Avg rating',
+      sortable: true,
+      // Derived from Review every time it is read. There is no stored average
+      // on Movie, and adding one would mean a denormalised counter to keep in
+      // step with every rating insert, update and delete.
+      render: (movie) => (movie.avgRating
+        ? <span className="adm-star">★ {movie.avgRating}</span>
+        : <span style={{ color: 'var(--text-faint)' }}>Unrated</span>),
+    },
+    { key: 'reviews', label: 'Reviews', sortable: true, render: (movie) => formatNumber(movie.reviewCount) },
+    {
+      key: 'actions',
+      label: '',
+      align: 'right',
+      render: (movie) => (
+        <>
+          <Link className="adm-btn adm-btn--sm adm-btn--ghost" to={`/admin/movies/${movie.movieId}`}>View</Link>
+          <button type="button" className="adm-btn adm-btn--sm" onClick={() => openEdit(movie.movieId)}>Edit</button>
+          <button type="button" className="adm-btn adm-btn--sm adm-btn--danger" onClick={() => askDelete(movie)}>Delete</button>
+        </>
+      ),
+    },
+  ];
 
   return (
-    <div className="movies-page">
-      <div className="movies-page__toolbar">
-        <div>
-          <h1>Movies</h1>
-          <p className="movies-page__count">
-            {status === 'ready' ? `${movies.length} movie${movies.length === 1 ? '' : 's'}` : '\u00A0'}
-          </p>
-        </div>
+    <>
+      <PageHeader
+        title="Movies"
+        subtitle={data ? `${formatNumber(data.total)} titles in the catalogue` : 'Loading…'}
+      >
+        <button type="button" className="adm-btn adm-btn--primary" onClick={() => setFormState({ mode: 'create' })}>
+          + Add movie
+        </button>
+      </PageHeader>
 
-        <div className="movies-page__toolbar-right">
-          <form onSubmit={handleSearchSubmit} className="movies-page__search">
-            <input
-              type="text"
-              placeholder="Search by title..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <button type="submit">Search</button>
-          </form>
+      <div className="adm-filters">
+        <input
+          type="search"
+          className="adm-input adm-input--grow"
+          placeholder="Search title, language or country…"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          aria-label="Search movies"
+        />
 
-          <button
-            type="button"
-            className="movies-page__add"
-            onClick={() => setFormState({ mode: 'create' })}
-          >
-            + Add Movie
-          </button>
-        </div>
+        <select
+          className="adm-select" value={params.genre || ''}
+          onChange={(event) => setFilter({ genre: event.target.value })}
+          aria-label="Filter by genre"
+        >
+          <option value="">All genres</option>
+          {filterOptions?.genres.map((genre) => (
+            <option key={genre.genreId} value={genre.genreName}>{genre.genreName}</option>
+          ))}
+        </select>
+
+        <select
+          className="adm-select" value={params.year || ''}
+          onChange={(event) => setFilter({ year: event.target.value })}
+          aria-label="Filter by year"
+        >
+          <option value="">All years</option>
+          {filterOptions?.years.map((year) => <option key={year} value={year}>{year}</option>)}
+        </select>
+
+        <select
+          className="adm-select" value={params.language || ''}
+          onChange={(event) => setFilter({ language: event.target.value })}
+          aria-label="Filter by language"
+        >
+          <option value="">All languages</option>
+          {filterOptions?.languages.map((language) => (
+            <option key={language} value={language}>{language}</option>
+          ))}
+        </select>
+
+        <select
+          className="adm-select" value={params.country || ''}
+          onChange={(event) => setFilter({ country: event.target.value })}
+          aria-label="Filter by country"
+        >
+          <option value="">All countries</option>
+          {filterOptions?.countries.map((country) => (
+            <option key={country} value={country}>{country}</option>
+          ))}
+        </select>
+
+        <select
+          className="adm-select" value={params.minRating || ''}
+          onChange={(event) => setFilter({ minRating: event.target.value })}
+          aria-label="Filter by minimum rating"
+        >
+          <option value="">Any rating</option>
+          {[9, 8, 7, 6, 5].map((score) => (
+            <option key={score} value={score}>{score}+ average</option>
+          ))}
+        </select>
       </div>
 
-      {status === 'loading' && <p className="movies-page__status">Loading movies…</p>}
-      {status === 'error' && <p className="movies-page__status movies-page__status--error">{errorMessage}</p>}
+      {status === 'loading' && <TableSkeleton rows={8} />}
+      {status === 'error' && <ErrorState message={errorMessage} onRetry={refresh} />}
 
-      {status === 'ready' && movies.length === 0 && (
-        <p className="movies-page__status">No movies found{search ? ` for "${search}"` : ''}.</p>
-      )}
-
-      {status === 'ready' && movies.length > 0 && (
-        <div className="movies-table__wrap">
-          <table className="movies-table">
-            <thead>
-              <tr>
-                <th>Poster</th>
-                <th>Title</th>
-                <th>Year</th>
-                <th>Runtime</th>
-                <th>Language</th>
-                <th>Country</th>
-                <th>Rating</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {movies.map((movie) => (
-                <tr key={movie.MOVIEID}>
-                  <td>
-                    {movie.POSTERURL ? (
-                      <img className="movies-table__poster" src={movie.POSTERURL} alt="" />
-                    ) : (
-                      <div className="movies-table__poster movies-table__poster--empty">
-                        {movie.TITLE?.charAt(0) || '?'}
-                      </div>
-                    )}
-                  </td>
-                  <td className="movies-table__title">{movie.TITLE}</td>
-                  <td>{movie.RELEASEYEAR}</td>
-                  <td>{movie.RUNTIME ? `${movie.RUNTIME} min` : '—'}</td>
-                  <td>{movie.LANGUAGE || '—'}</td>
-                  <td>{movie.COUNTRY || '—'}</td>
-                  <td>{movie.AVGRATING ? `★ ${movie.AVGRATING}` : '—'}</td>
-                  <td className="movies-table__actions">
-                    <button type="button" onClick={() => openEdit(movie.MOVIEID)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="movies-table__delete"
-                      disabled={deletingId === movie.MOVIEID}
-                      onClick={() => handleDelete(movie)}
-                    >
-                      {deletingId === movie.MOVIEID ? 'Deleting…' : 'Delete'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {data && status !== 'loading' && (
+        <>
+          <DataTable
+            columns={columns}
+            rows={data.items}
+            rowKey={(movie) => movie.movieId}
+            sort={params.sort}
+            order={params.order}
+            onSort={setSort}
+            emptyState={
+              <EmptyState
+                icon="🎬"
+                title="No movies match those filters"
+                message="Try clearing the search box or widening the year and genre filters."
+              />
+            }
+          />
+          <Pagination
+            page={data.page} pageCount={data.pageCount} total={data.total}
+            limit={data.limit} onPage={setPage} noun="movies"
+          />
+        </>
       )}
 
       {formState && (
         <MovieFormModal
           mode={formState.mode}
           movie={formState.movie}
-          genres={genres}
+          genres={filterOptions?.genres.map((genre) => ({
+            GENREID: genre.genreId, GENRENAME: genre.genreName,
+          })) || []}
           onClose={() => setFormState(null)}
-          onSaved={handleSaved}
+          onSaved={() => {
+            toast.success(formState.mode === 'create' ? 'Movie added successfully.' : 'Movie updated successfully.');
+            setFormState(null);
+            refresh();
+          }}
         />
       )}
-    </div>
+
+      {pendingDelete && (
+        <ConfirmModal
+          danger
+          title="Delete movie?"
+          message={`"${pendingDelete.movie.title}" (${pendingDelete.movie.releaseYear}) will be removed. These related records are deleted with it:`}
+          impact={pendingDelete.cascades}
+          detaches={pendingDelete.detaches}
+          confirmLabel="Delete movie"
+          busy={deleting}
+          onConfirm={confirmDelete}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
+    </>
   );
 }

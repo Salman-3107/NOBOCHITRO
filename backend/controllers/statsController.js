@@ -1,4 +1,5 @@
 const { getPool } = require('../db');
+const { hasReports, hasChallengeStatus } = require('../utils/adminSchema');
 
 // Everything in this file is read-only aggregate SQL -- GROUP BY, COUNT,
 // AVG, SUM over the existing schema. No new tables are needed.
@@ -179,20 +180,80 @@ async function getAdminDashboard(req, res) {
   try {
     connection = await getPool().getConnection();
 
+    // Two of the cards the admin dashboard shows depend on the optional
+    // schema additions, so what gets counted is decided first. Referencing
+    // ContentReport when it hasn't been created is ORA-00942, and that would
+    // take the whole dashboard down over one card.
+    const [reportsInstalled, lifecycleInstalled] = await Promise.all([
+      hasReports(connection),
+      hasChallengeStatus(connection),
+    ]);
+
+    // "Ratings" and "Reviews" are different numbers drawn from the same table:
+    // every Review row carries a RatingValue (NOT NULL), but ReviewText is
+    // optional, so a written review is a strict subset of the ratings. The
+    // brief asks for both, and reporting the same figure twice would be wrong.
+    const reportCount = reportsInstalled
+      ? `(SELECT COUNT(*) FROM ContentReport WHERE Status = 'Pending')`
+      : 'CAST(NULL AS NUMBER)';
+
+    // Without Status, "active" can only mean "inside its date window", which
+    // is what the user-facing /api/challenges list has always meant by it.
+    const activeChallenges = lifecycleInstalled
+      ? `(SELECT COUNT(*) FROM Challenge WHERE Status = 'Published'
+            AND (StartDate IS NULL OR StartDate <= SYSDATE)
+            AND (EndDate IS NULL OR EndDate >= SYSDATE))`
+      : `(SELECT COUNT(*) FROM Challenge
+          WHERE (StartDate IS NULL OR StartDate <= SYSDATE)
+            AND (EndDate IS NULL OR EndDate >= SYSDATE))`;
+
     const counts = await connection.execute(
       `SELECT
          (SELECT COUNT(*) FROM AppUser) AS UserCount,
          (SELECT COUNT(*) FROM AppUser WHERE IsAdmin = 1) AS AdminCount,
          (SELECT COUNT(*) FROM Movie) AS MovieCount,
-         (SELECT COUNT(*) FROM Review) AS ReviewCount,
+         (SELECT COUNT(*) FROM Review) AS RatingCount,
+         (SELECT COUNT(*) FROM Review WHERE ReviewText IS NOT NULL) AS ReviewCount,
          (SELECT COUNT(*) FROM Post) AS PostCount,
          (SELECT COUNT(*) FROM PostComment) AS CommentCount,
          (SELECT COUNT(*) FROM Genre) AS GenreCount,
          (SELECT COUNT(*) FROM Person) AS PersonCount,
          (SELECT COUNT(*) FROM JournalEntry) AS JournalCount,
+         (SELECT COUNT(*) FROM Challenge) AS ChallengeCount,
+         ${activeChallenges} AS ActiveChallengeCount,
+         ${reportCount} AS PendingReportCount,
          (SELECT COUNT(*) FROM AppUser WHERE JoinDate >= SYSDATE - 7) AS NewUsersThisWeek,
-         (SELECT COUNT(*) FROM Review WHERE ReviewDate >= SYSDATE - 7) AS ReviewsThisWeek
+         (SELECT COUNT(*) FROM AppUser WHERE JoinDate >= SYSDATE - 30) AS NewUsersThisMonth,
+         (SELECT COUNT(*) FROM Review WHERE ReviewDate >= SYSDATE - 7) AS ReviewsThisWeek,
+         (SELECT COUNT(*) FROM Review WHERE ReviewDate >= SYSDATE - 30) AS ReviewsThisMonth,
+         (SELECT COUNT(*) FROM Post WHERE PostDate >= SYSDATE - 7) AS PostsThisWeek
        FROM dual`
+    );
+
+    // Movie has no CreatedDate column -- nothing records when a title was
+    // added to the catalogue. MovieID comes from seq_movie, so descending
+    // MovieID is the only honest proxy for "most recently added", and it is
+    // returned as a short list rather than dressed up as a "+N this month"
+    // trend figure that the schema cannot actually support.
+    const recentMovies = await connection.execute(
+      `SELECT MovieID, Title, ReleaseYear, PosterURL
+       FROM Movie ORDER BY MovieID DESC FETCH FIRST 5 ROWS ONLY`
+    );
+
+    // The current challenge card. NULL when nothing is running, which the UI
+    // renders as "No challenge running" rather than an empty card.
+    const currentChallenge = await connection.execute(
+      `SELECT * FROM (
+         SELECT c.ChallengeID, c.Title, c.StartDate, c.EndDate, c.TargetCount,
+                (SELECT COUNT(*) FROM UserChallengeProgress p
+                  WHERE p.ChallengeID = c.ChallengeID) AS Participants,
+                (SELECT COUNT(*) FROM UserChallengeProgress p
+                  WHERE p.ChallengeID = c.ChallengeID AND p.Completed = 1) AS CompletedCount
+         FROM Challenge c
+         WHERE (c.StartDate IS NULL OR c.StartDate <= SYSDATE)
+           AND (c.EndDate IS NULL OR c.EndDate >= SYSDATE)
+         ORDER BY c.EndDate ASC NULLS LAST
+       ) WHERE ROWNUM = 1`
     );
 
     // Movies with no rating yet -- a useful "needs attention" list for a
@@ -221,16 +282,49 @@ async function getAdminDashboard(req, res) {
         users: row.USERCOUNT,
         admins: row.ADMINCOUNT,
         movies: row.MOVIECOUNT,
+        ratings: row.RATINGCOUNT,
         reviews: row.REVIEWCOUNT,
         posts: row.POSTCOUNT,
         comments: row.COMMENTCOUNT,
         genres: row.GENRECOUNT,
         people: row.PERSONCOUNT,
         journalEntries: row.JOURNALCOUNT,
+        challenges: row.CHALLENGECOUNT,
+        activeChallenges: row.ACTIVECHALLENGECOUNT,
+        // null, not 0 -- "the report table isn't installed" and "there are no
+        // reports" are different states and the card says so.
+        pendingReports: reportsInstalled ? row.PENDINGREPORTCOUNT : null,
+      },
+      features: {
+        reports: reportsInstalled,
+        challengeLifecycle: lifecycleInstalled,
       },
       thisWeek: {
         newUsers: row.NEWUSERSTHISWEEK,
         reviews: row.REVIEWSTHISWEEK,
+        posts: row.POSTSTHISWEEK,
+      },
+      thisMonth: {
+        newUsers: row.NEWUSERSTHISMONTH,
+        reviews: row.REVIEWSTHISMONTH,
+      },
+      recentMovies: recentMovies.rows.map((movie) => ({
+        movieId: movie.MOVIEID,
+        title: movie.TITLE,
+        releaseYear: movie.RELEASEYEAR,
+        posterUrl: movie.POSTERURL,
+      })),
+      currentChallenge: currentChallenge.rows.length === 0 ? null : {
+        challengeId: currentChallenge.rows[0].CHALLENGEID,
+        title: currentChallenge.rows[0].TITLE,
+        startDate: currentChallenge.rows[0].STARTDATE,
+        endDate: currentChallenge.rows[0].ENDDATE,
+        targetCount: currentChallenge.rows[0].TARGETCOUNT,
+        participants: currentChallenge.rows[0].PARTICIPANTS,
+        completedCount: currentChallenge.rows[0].COMPLETEDCOUNT,
+        completionRate: currentChallenge.rows[0].PARTICIPANTS > 0
+          ? Math.round((currentChallenge.rows[0].COMPLETEDCOUNT / currentChallenge.rows[0].PARTICIPANTS) * 100)
+          : 0,
       },
       unratedMovies: unrated.rows.map((movie) => ({
         movieId: movie.MOVIEID,
