@@ -1,43 +1,41 @@
 const { getPool } = require('../db');
 
 // GET /api/users/:id/passport  (optional auth)
-// Same privacy pattern as the journal: the owner sees stats built from
-// ALL their journal entries; anyone else only sees stats built from
-// their Public entries, so a private-entry count never leaks.
+// Based entirely on Review, not JournalEntry: you can only stamp a
+// country/genre/director if you actually reviewed a film from it. Review
+// has no Privacy column (a review is always public), so there's no
+// owner-vs-visitor split here — everyone sees the same stats for a user.
 async function getMoviePassport(req, res) {
   const profileUserId = Number(req.params.id);
-  const viewerId = req.user ? req.user.userId : null;
-  const isOwner = viewerId === profileUserId;
-  const privacyFilter = isOwner ? '' : `AND j.Privacy = 'Public'`;
 
   let connection;
   try {
     connection = await getPool().getConnection();
 
-    // 1. Headline counts: total distinct movies watched, watched this
+    // 1. Headline counts: total distinct movies reviewed, reviewed this
     //    year, and how many different countries/languages that spans.
     const overview = await connection.execute(
       `SELECT
-         COUNT(DISTINCT j.MovieID) AS TotalWatched,
+         COUNT(DISTINCT r.MovieID) AS TotalWatched,
          COUNT(DISTINCT CASE
-                 WHEN EXTRACT(YEAR FROM j.WatchDate) = EXTRACT(YEAR FROM SYSDATE)
-                 THEN j.MovieID
+                 WHEN EXTRACT(YEAR FROM r.ReviewDate) = EXTRACT(YEAR FROM SYSDATE)
+                 THEN r.MovieID
                END) AS WatchedThisYear,
          COUNT(DISTINCT m.Country) AS CountriesExplored,
          COUNT(DISTINCT m.Language) AS LanguagesExplored
-       FROM JournalEntry j
-       JOIN Movie m ON m.MovieID = j.MovieID
-       WHERE j.UserID = :profileUserId ${privacyFilter}`,
+       FROM Review r
+       JOIN Movie m ON m.MovieID = r.MovieID
+       WHERE r.UserID = :profileUserId`,
       { profileUserId }
     );
 
-    // 2. Favorite genre: the genre appearing most often among watched movies.
+    // 2. Favorite genre: the genre appearing most often among reviewed movies.
     const favoriteGenre = await connection.execute(
       `SELECT g.GenreName, COUNT(*) AS Occurrences
-       FROM JournalEntry j
-       JOIN MovieGenre mg ON mg.MovieID = j.MovieID
+       FROM Review r
+       JOIN MovieGenre mg ON mg.MovieID = r.MovieID
        JOIN Genre g ON g.GenreID = mg.GenreID
-       WHERE j.UserID = :profileUserId ${privacyFilter}
+       WHERE r.UserID = :profileUserId
        GROUP BY g.GenreName
        ORDER BY Occurrences DESC
        FETCH FIRST 1 ROWS ONLY`,
@@ -47,31 +45,30 @@ async function getMoviePassport(req, res) {
     // 3. Favorite director: same idea, filtered to Director credits.
     const favoriteDirector = await connection.execute(
       `SELECT p.FullName, COUNT(*) AS Occurrences
-       FROM JournalEntry j
-       JOIN MovieCredit mc ON mc.MovieID = j.MovieID AND mc.RoleType = 'Director'
+       FROM Review r
+       JOIN MovieCredit mc ON mc.MovieID = r.MovieID AND mc.RoleType = 'Director'
        JOIN Person p ON p.PersonID = mc.PersonID
-       WHERE j.UserID = :profileUserId ${privacyFilter}
+       WHERE r.UserID = :profileUserId
        GROUP BY p.FullName
        ORDER BY Occurrences DESC
        FETCH FIRST 1 ROWS ONLY`,
       { profileUserId }
     );
 
-    // 4. Most-watched movie: the one with the most journal entries
-    //    (each rewatch is its own JournalEntry row for that MovieID).
-    const mostWatched = await connection.execute(
-      `SELECT m.Title, COUNT(*) AS WatchCount
-       FROM JournalEntry j
-       JOIN Movie m ON m.MovieID = j.MovieID
-       WHERE j.UserID = :profileUserId ${privacyFilter}
-       GROUP BY m.Title
-       ORDER BY WatchCount DESC
+    // 4. Highest rated: Review has one row per user+movie (PK is
+    //    userid+movieid), so there's no rewatch count to lean on anymore —
+    //    this is the review-based stand-in for the old "most rewatched" stat.
+    const highestRated = await connection.execute(
+      `SELECT m.Title, r.RatingValue
+       FROM Review r
+       JOIN Movie m ON m.MovieID = r.MovieID
+       WHERE r.UserID = :profileUserId
+       ORDER BY r.RatingValue DESC, r.ReviewDate DESC
        FETCH FIRST 1 ROWS ONLY`,
       { profileUserId }
     );
 
-    // 5. Average personal rating, from Review (ratings aren't
-    //    privacy-gated in the schema, so no filter needed here).
+    // 5. Average personal rating.
     const ratingStats = await connection.execute(
       `SELECT ROUND(AVG(RatingValue), 1) AS AvgRating, COUNT(*) AS TotalRated
        FROM Review WHERE UserID = :profileUserId`,
@@ -79,9 +76,9 @@ async function getMoviePassport(req, res) {
     );
 
     const countries = await connection.execute(
-      `SELECT m.Country, COUNT(DISTINCT j.MovieID) AS WatchCount
-       FROM JournalEntry j JOIN Movie m ON m.MovieID = j.MovieID
-       WHERE j.UserID = :profileUserId ${privacyFilter} AND m.Country IS NOT NULL
+      `SELECT m.Country, COUNT(DISTINCT r.MovieID) AS WatchCount
+       FROM Review r JOIN Movie m ON m.MovieID = r.MovieID
+       WHERE r.UserID = :profileUserId AND m.Country IS NOT NULL
        GROUP BY m.Country ORDER BY WatchCount DESC FETCH FIRST 12 ROWS ONLY`,
       { profileUserId }
     );
@@ -94,8 +91,8 @@ async function getMoviePassport(req, res) {
       languagesExplored: overview.rows[0].LANGUAGESEXPLORED,
       favoriteGenre: favoriteGenre.rows[0]?.GENRENAME || null,
       favoriteDirector: favoriteDirector.rows[0]?.FULLNAME || null,
-      mostWatchedMovie: mostWatched.rows[0]
-        ? { title: mostWatched.rows[0].TITLE, watchCount: mostWatched.rows[0].WATCHCOUNT }
+      highestRatedMovie: highestRated.rows[0]
+        ? { title: highestRated.rows[0].TITLE, rating: highestRated.rows[0].RATINGVALUE }
         : null,
       averageRating: ratingStats.rows[0].AVGRATING,
       totalRated: ratingStats.rows[0].TOTALRATED,
@@ -111,9 +108,8 @@ async function getMoviePassport(req, res) {
 
 // GET /api/users/:id/passport/countries/:country/movies  (optional auth)
 // Backs the "which films stamped this country?" drawer on the passport page.
-// Same privacy rule as getMoviePassport: the owner sees every entry, a
-// visitor only sees the Public ones, so the counts on the stamp and the
-// films listed under it always agree with each other.
+// Also Review-based now: one card per reviewed movie from that country,
+// each with your rating and when you posted the review.
 async function getPassportCountryMovies(req, res) {
   const profileUserId = Number(req.params.id);
   const country = decodeURIComponent(req.params.country || '').trim();
@@ -125,28 +121,18 @@ async function getPassportCountryMovies(req, res) {
     return res.status(400).json({ error: 'Invalid country' });
   }
 
-  const viewerId = req.user ? req.user.userId : null;
-  const isOwner = viewerId === profileUserId;
-  const privacyFilter = isOwner ? '' : `AND j.Privacy = 'Public'`;
-
   let connection;
   try {
     connection = await getPool().getConnection();
 
-    // Grouped by movie, not by journal entry: a film watched three times is
-    // one card with WatchCount 3, not three identical cards.
     const result = await connection.execute(
       `SELECT m.MovieID, m.Title, m.ReleaseYear, m.PosterURL, m.Language,
-              COUNT(j.JournalID) AS WatchCount,
-              MAX(j.WatchDate) AS LastWatched,
-              MAX(r.RatingValue) AS MyRating
-       FROM JournalEntry j
-       JOIN Movie m ON m.MovieID = j.MovieID
-       LEFT JOIN Review r ON r.MovieID = j.MovieID AND r.UserID = j.UserID
-       WHERE j.UserID = :profileUserId
-         AND UPPER(m.Country) = UPPER(:country) ${privacyFilter}
-       GROUP BY m.MovieID, m.Title, m.ReleaseYear, m.PosterURL, m.Language
-       ORDER BY MAX(j.WatchDate) DESC NULLS LAST, m.Title`,
+              r.RatingValue AS MyRating, r.ReviewDate AS ReviewedOn
+       FROM Review r
+       JOIN Movie m ON m.MovieID = r.MovieID
+       WHERE r.UserID = :profileUserId
+         AND UPPER(m.Country) = UPPER(:country)
+       ORDER BY r.ReviewDate DESC NULLS LAST, m.Title`,
       { profileUserId, country }
     );
 
@@ -159,9 +145,8 @@ async function getPassportCountryMovies(req, res) {
         releaseYear: row.RELEASEYEAR,
         posterUrl: row.POSTERURL,
         language: row.LANGUAGE,
-        watchCount: row.WATCHCOUNT,
-        lastWatched: row.LASTWATCHED,
         myRating: row.MYRATING,
+        reviewedOn: row.REVIEWEDON,
       })),
     });
   } catch (err) {

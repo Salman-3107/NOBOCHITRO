@@ -79,14 +79,16 @@ async function getUserStats(req, res) {
       { profileUserId }
     );
 
-    // Countries, for the passport map and the stats page alike.
+    // Countries, for the passport map and the stats page alike. Review-based,
+    // not JournalEntry -- a country only gets stamped once you've actually
+    // rated a film from it, and Review has no Privacy column so no filter
+    // is needed here (a review is always public).
     const byCountry = await connection.execute(
-      `SELECT m.Country, COUNT(DISTINCT j.MovieID) AS MovieCount,
+      `SELECT m.Country, COUNT(DISTINCT r.MovieID) AS MovieCount,
               ROUND(AVG(r.RatingValue), 1) AS AvgRating
-       FROM JournalEntry j
-       JOIN Movie m ON m.MovieID = j.MovieID
-       LEFT JOIN Review r ON r.MovieID = j.MovieID AND r.UserID = j.UserID
-       WHERE j.UserID = :profileUserId ${privacyFilter}
+       FROM Review r
+       JOIN Movie m ON m.MovieID = r.MovieID
+       WHERE r.UserID = :profileUserId
          AND m.Country IS NOT NULL
        GROUP BY m.Country
        ORDER BY MovieCount DESC`,

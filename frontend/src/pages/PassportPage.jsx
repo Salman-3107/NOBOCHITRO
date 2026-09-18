@@ -204,7 +204,7 @@ export default function PassportPage({ user, onLogout, onNavigate, onSelectMovie
           <div className="passport-book__notes">
             <span>Favourite genre <strong>{passport.favoriteGenre || 'Still discovering'}</strong></span>
             <span>Favourite director <strong>{passport.favoriteDirector || 'Still discovering'}</strong></span>
-            <span>Most rewatched <strong>{passport.mostWatchedMovie?.title || 'No repeat visits yet'}</strong></span>
+            <span>Highest rated <strong>{passport.highestRatedMovie?.title || 'No reviews yet'}</strong></span>
           </div>
         </section>
 
@@ -342,11 +342,10 @@ export default function PassportPage({ user, onLogout, onNavigate, onSelectMovie
                           <small>
                             {movie.releaseYear}
                             {movie.language && <> &middot; {movie.language}</>}
-                            {movie.watchCount > 1 && <> &middot; watched {movie.watchCount}&times;</>}
                           </small>
-                          {formatWatchDate(movie.lastWatched) && (
+                          {formatWatchDate(movie.reviewedOn) && (
                             <small className="stamp-film__date">
-                              Last seen {formatWatchDate(movie.lastWatched)}
+                              Reviewed {formatWatchDate(movie.reviewedOn)}
                             </small>
                           )}
                         </span>
