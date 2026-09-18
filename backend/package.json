@@ -7,7 +7,8 @@
     "start": "node server.js",
     "sync-posters": "node scripts/sync-tmdb-posters.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "seed:international": "node scripts/seed-international-movies.js"
+    "seed:international": "node scripts/seed-international-movies.js",
+    "sync-details": "node scripts/sync-tmdb-details.js"
   },
   "keywords": [],
   "author": "",

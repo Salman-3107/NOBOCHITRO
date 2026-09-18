@@ -52,6 +52,40 @@ function CastRail({ credits }) {
   );
 }
 
+// TMDB hands back a normal youtube.com/watch?v=KEY link; the embed player
+// needs just the key. Also accepts youtu.be/KEY in case a trailer was added
+// by hand from the admin panel.
+function youTubeKey(url) {
+  if (!url) return null;
+  const match = String(url).match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
+
+function TrailerModal({ movieTitle, trailerUrl, onClose }) {
+  const key = youTubeKey(trailerUrl);
+  useEffect(() => {
+    function onKeyDown(event) { if (event.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  if (!key) return null;
+
+  return (
+    <div className="trailer-overlay" role="dialog" aria-modal="true" aria-label={`${movieTitle} trailer`} onClick={onClose}>
+      <div className="trailer-frame" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="trailer-frame__close" onClick={onClose} aria-label="Close trailer">×</button>
+        <iframe
+          src={`https://www.youtube.com/embed/${key}?autoplay=1&rel=0`}
+          title={`${movieTitle} trailer`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    </div>
+  );
+}
+
 function Poster({ movie }) {
   if (movie.POSTERURL) return <img className="movie-details__poster" src={movie.POSTERURL} alt={`${movie.TITLE} poster`} />;
   return <div className="movie-details__poster movie-details__poster--placeholder"><span>{movie.TITLE?.charAt(0)}</span></div>;
@@ -145,6 +179,7 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
   const [search, setSearch] = useState('');
   const [watchlistMessage, setWatchlistMessage] = useState('');
   const [relatedMovies, setRelatedMovies] = useState([]);
+  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
 
   async function loadMovie() {
     setStatus('loading');
@@ -212,7 +247,13 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
                   <p className="movie-details__facts">{movie.RELEASEYEAR}{movie.RUNTIME ? ` · ${movie.RUNTIME} minutes` : ''}{movie.COUNTRY ? ` · ${movie.COUNTRY}` : ''}</p>
                   <div className="genre-tags">{movie.genres.map((genre) => <span key={genre.GENREID}>{genre.GENRENAME}</span>)}</div>
                   <div className="movie-details__actions">
-                    <button type="button" className="details-button details-button--play">▶ Trailer</button>
+                    <button
+                      type="button"
+                      className="details-button details-button--play"
+                      disabled={!youTubeKey(movie.TRAILERURL)}
+                      title={youTubeKey(movie.TRAILERURL) ? 'Play trailer' : 'No trailer on file yet'}
+                      onClick={() => setIsTrailerOpen(true)}
+                    >▶ Trailer</button>
                     <button type="button" className="details-button details-button--list" onClick={handleAddToWatchlist}>+ My List</button>
                   </div>
                   {watchlistMessage && <p className="movie-details__watchlist-message">{watchlistMessage}</p>}
@@ -221,10 +262,24 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
             </div>
           </section>
 
-          {movie.credits.length > 0 && (
+          {(movie.cast || movie.credits.filter((c) => c.ROLETYPE === 'Actor')).length > 0 && (
             <section className="rail-section">
-              <div className="rail-section__heading"><p className="section-label">Cast &amp; crew</p></div>
-              <CastRail credits={movie.credits} />
+              <div className="rail-section__heading"><p className="section-label">Cast</p></div>
+              <CastRail credits={movie.cast || movie.credits.filter((c) => c.ROLETYPE === 'Actor')} />
+            </section>
+          )}
+
+          {(movie.crew || movie.credits.filter((c) => c.ROLETYPE !== 'Actor')).length > 0 && (
+            <section className="rail-section">
+              <div className="rail-section__heading"><p className="section-label">Crew</p></div>
+              <ul className="crew-list">
+                {(movie.crew || movie.credits.filter((c) => c.ROLETYPE !== 'Actor')).map((member) => (
+                  <li key={`${member.PERSONID}-${member.ROLETYPE}`}>
+                    <span className="crew-list__role">{member.ROLETYPE}</span>
+                    <strong>{member.FULLNAME}</strong>
+                  </li>
+                ))}
+              </ul>
             </section>
           )}
 
@@ -253,6 +308,9 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
             </aside>
           </div>
         </main>
+      )}
+      {isTrailerOpen && movie && (
+        <TrailerModal movieTitle={movie.TITLE} trailerUrl={movie.TRAILERURL} onClose={() => setIsTrailerOpen(false)} />
       )}
     </div>
   );

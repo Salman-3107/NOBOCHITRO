@@ -107,12 +107,21 @@ async function getMovie(req, res) {
       { movieId }
     );
 
+    // PhotoURL is what the cast rail draws; CreditOrder keeps top billing
+    // first (TMDB order 0 = lead). Crew has no order, so it sorts by name.
     const creditsResult = await connection.execute(
-      `SELECT p.PersonID, p.FullName, mc.RoleType, mc.CharacterName
+      `SELECT p.PersonID, p.FullName, p.PhotoURL,
+              mc.RoleType, mc.CharacterName, mc.CreditOrder
        FROM Person p
        JOIN MovieCredit mc ON mc.PersonID = p.PersonID
        WHERE mc.MovieID = :movieId
-       ORDER BY mc.RoleType`,
+       ORDER BY CASE mc.RoleType
+                  WHEN 'Director' THEN 1
+                  WHEN 'Writer'   THEN 2
+                  ELSE 3
+                END,
+                mc.CreditOrder NULLS LAST,
+                p.FullName`,
       { movieId }
     );
 
@@ -126,6 +135,8 @@ async function getMovie(req, res) {
       ...movieResult.rows[0],
       genres: genresResult.rows,
       credits: creditsResult.rows,
+      cast: creditsResult.rows.filter((row) => row.ROLETYPE === 'Actor'),
+      crew: creditsResult.rows.filter((row) => row.ROLETYPE !== 'Actor'),
       avgRating: ratingResult.rows[0].AVGRATING,
       ratingCount: ratingResult.rows[0].RATINGCOUNT,
     });
