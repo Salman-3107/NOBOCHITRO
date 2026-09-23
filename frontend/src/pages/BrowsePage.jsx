@@ -127,14 +127,14 @@ export default function BrowsePage({ user, onLogout, onSelectMovie, page, onNavi
     setActiveSort('');
   }
 
-  function handleHeaderNavigate(nextPage) {
+  function handleHeaderNavigate(nextPage, targetId) {
     if (nextPage === 'home') resetHomeFilters();
-    onNavigate(nextPage);
+    onNavigate(nextPage, targetId);
   }
 
   return (
     <div className="browse-page">
-      <Header searchValue={searchInput} onSearchChange={setSearchInput} onLogout={onLogout} activePage={page} onNavigate={handleHeaderNavigate} />
+      <Header searchValue={searchInput} onSearchChange={setSearchInput} onLogout={onLogout} activePage={page} onNavigate={handleHeaderNavigate} hideEmptyMembers />
 
       <main className="browse-page__content">
         {featuredMovie && !isDiscover && (

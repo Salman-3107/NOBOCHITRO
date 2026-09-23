@@ -1,8 +1,8 @@
 const { getPool } = require('../db');
 
-const VALID_TYPES = ['most_watched', 'most_reviewed', 'most_challenges'];
+const VALID_TYPES = ['most_watched', 'most_reviewed', 'most_challenges', 'most_xp'];
 
-// GET /api/leaderboards?type=most_watched|most_reviewed|most_challenges  (public)
+// GET /api/leaderboards?type=most_watched|most_reviewed|most_challenges|most_xp  (auth)
 async function getLeaderboard(req, res) {
   const type = req.query.type || 'most_watched';
 
@@ -38,6 +38,18 @@ async function getLeaderboard(req, res) {
         WHERE ucp.Completed = 1
         GROUP BY u.UserID, u.Username, u.DisplayName
         ORDER BY Score DESC
+        FETCH FIRST 10 ROWS ONLY`;
+      break;
+    case 'most_xp':
+      // Total XP from completed challenges, via the stored function
+      // FN_USER_TOTAL_XP (joins UserChallengeProgress to Challenge).
+      sql = `
+        SELECT * FROM (
+          SELECT u.UserID, u.Username, u.DisplayName, FN_USER_TOTAL_XP(u.UserID) AS Score
+          FROM AppUser u
+          ORDER BY Score DESC
+        )
+        WHERE Score > 0
         FETCH FIRST 10 ROWS ONLY`;
       break;
   }

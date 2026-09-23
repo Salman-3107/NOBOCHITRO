@@ -1,6 +1,6 @@
 const { getPool } = require('../db');
 
-// GET /api/challenges  (public) -- currently active challenges
+// GET /api/challenges  (auth) -- currently active challenges
 async function listChallenges(req, res) {
   let connection;
   try {
@@ -33,11 +33,12 @@ async function joinChallenge(req, res) {
     await connection.execute(
       `INSERT INTO UserChallengeProgress (UserID, ChallengeID, CurrentProgress, Completed)
        VALUES (:userId, :challengeId, 0, 0)`,
-      { userId, challengeId },
-      { autoCommit: true }
+      { userId, challengeId }
     );
+    await connection.commit();
     res.status(201).json({ message: 'Joined challenge' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 1) {
       return res.status(409).json({ error: 'You already joined this challenge' });
     }
@@ -51,7 +52,7 @@ async function joinChallenge(req, res) {
   }
 }
 
-// GET /api/users/:id/challenges  (public) -- a user's joined challenges + progress
+// GET /api/users/:id/challenges  (auth) -- a user's joined challenges + progress
 async function getUserChallenges(req, res) {
   const userId = Number(req.params.id);
 
@@ -136,18 +137,17 @@ async function evaluateChallengeProgress(connection, userId, movieId) {
 
     if (!matches) continue;
 
-    const newProgress = challenge.CURRENTPROGRESS + 1;
-    const isNowComplete = newProgress >= challenge.TARGETCOUNT;
-
+    // Only CurrentProgress is written here. When it reaches TargetCount,
+    // trigger TRG_UCP_AUTOCOMPLETE sets Completed = 1 and CompletionDate in
+    // the same UPDATE, so "what counts as complete" lives in one place (the
+    // database) instead of being re-derived by every code path that bumps
+    // progress.
     await connection.execute(
       `UPDATE UserChallengeProgress
-       SET CurrentProgress = :newProgress,
-           Completed = :completed,
-           CompletionDate = CASE WHEN :completed = 1 THEN SYSDATE ELSE CompletionDate END
+       SET CurrentProgress = :newProgress
        WHERE UserID = :userId AND ChallengeID = :challengeId`,
       {
-        newProgress,
-        completed: isNowComplete ? 1 : 0,
+        newProgress: challenge.CURRENTPROGRESS + 1,
         userId,
         challengeId: challenge.CHALLENGEID,
       }

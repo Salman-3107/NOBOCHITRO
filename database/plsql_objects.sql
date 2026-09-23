@@ -23,35 +23,46 @@
 --    edited or removed -- this is exactly the "logging sensitive
 --    actions to a shadow table" use case from the checklist.
 -- ------------------------------------------------------------
-CREATE SEQUENCE seq_reviewhistory START WITH 1 INCREMENT BY 1 NOCACHE;
+-- Re-runnable: each CREATE below is wrapped so that running this whole file a
+-- second time (e.g. to pick up a changed procedure) skips objects that already
+-- exist instead of stopping with ORA-00955 "name is already used".
+BEGIN
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE seq_reviewhistory START WITH 1 INCREMENT BY 1 NOCACHE';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -955 THEN RAISE; END IF;
+END;
+/
 
+-- ChangedBy stores Oracle's USER pseudo-column, which is the POOLED connection
+-- account (e.g. NOBOCHITRO_USER) for every request -- not the individual app
+-- user who clicked delete. The backend logs in to Oracle once as one account
+-- and re-uses that connection for every HTTP request (see db.js /
+-- oracledb.createPool); WHO in the app sense only exists as req.user.userId
+-- from the JWT, which never reaches the database session. UserID already
+-- identifies whose review this was; ChangedBy just tells you the change went
+-- through the app's own service account rather than someone querying the
+-- table directly.
+-- ChangeType is 'UPDATE' or 'DELETE'.
+BEGIN
+    EXECUTE IMMEDIATE '
 CREATE TABLE ReviewHistory (
-    HistoryID    NUMBER(10)     NOT NULL,
-    UserID       NUMBER(10)     NOT NULL,
-    MovieID      NUMBER(10)     NOT NULL,
-    OldRating    NUMBER(2),
+    HistoryID     NUMBER(10)    NOT NULL,
+    UserID        NUMBER(10)    NOT NULL,
+    MovieID       NUMBER(10)    NOT NULL,
+    OldRating     NUMBER(2),
     OldReviewText CLOB,
-    ChangeType   VARCHAR2(10)   NOT NULL,  -- 'UPDATE' or 'DELETE'
-    -- NOTE: ChangedBy stores Oracle's USER pseudo-column, which is the
-    -- POOLED connection account (e.g. NOBOCHITRO_USER) for every request --
-    -- not the individual app user who clicked delete. The backend logs in
-    -- to Oracle once as one account and re-uses that connection for every
-    -- HTTP request (see db.js/oracledb.createPool); WHO in the app sense
-    -- only exists as req.user.userId from the JWT, which never reaches the
-    -- database session. UserID above already identifies whose review this
-    -- was; ChangedBy just tells you it went through the app's own service
-    -- account rather than someone querying the table directly.
-    ChangedBy    VARCHAR2(30),
-    ChangedDate  DATE           DEFAULT SYSDATE NOT NULL
-);
-
-ALTER TABLE ReviewHistory ADD CONSTRAINT pk_reviewhistory PRIMARY KEY (HistoryID);
-
-ALTER TABLE ReviewHistory
-    ADD CONSTRAINT ck_reviewhistory_changetype
-    CHECK (ChangeType IN ('UPDATE', 'DELETE'));
-
-COMMIT;
+    ChangeType    VARCHAR2(10)  NOT NULL,
+    ChangedBy     VARCHAR2(30),
+    ChangedDate   DATE          DEFAULT SYSDATE NOT NULL,
+    CONSTRAINT pk_reviewhistory PRIMARY KEY (HistoryID),
+    CONSTRAINT ck_reviewhistory_changetype CHECK (ChangeType IN (''UPDATE'', ''DELETE''))
+)';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -955 THEN RAISE; END IF;
+END;
+/
 
 
 -- ============================================================
@@ -111,10 +122,11 @@ END;
 --    and into the database, so it can never be skipped by a
 --    future code path that inserts into UserFollow directly.
 --
---    IMPORTANT: if you add this trigger, DELETE the
---    createNotification(...) call in followController.js
---    (lines ~27-32) -- otherwise the followed user gets the
---    same "X started following you" notification twice.
+--    followController.followUser no longer calls
+--    createNotification -- this trigger is now the ONLY place the
+--    "X started following you" row is written. Deploy this file
+--    before starting the backend, or follows will work but
+--    produce no notification.
 -- ------------------------------------------------------------
 CREATE OR REPLACE TRIGGER TRG_NOTIFY_ON_FOLLOW
 AFTER INSERT
@@ -146,9 +158,10 @@ END;
 --    it's business logic, not a data-integrity rule).
 --
 --    This trigger's ONLY job: whenever CurrentProgress is written,
---    guarantee Completed/CompletionDate are consistent with it,
---    even if some future code path updates progress without
---    remembering to also flip the flag.
+--    set Completed/CompletionDate when it reaches TargetCount.
+--    challengeController.evaluateChallengeProgress now writes only
+--    CurrentProgress and relies on this trigger for completion, so
+--    the rule lives in one place.
 -- ------------------------------------------------------------
 CREATE OR REPLACE TRIGGER TRG_UCP_AUTOCOMPLETE
 BEFORE UPDATE OF CurrentProgress
@@ -267,21 +280,28 @@ END;
 CREATE OR REPLACE PROCEDURE PROC_PUBLISH_CHALLENGE(
     P_CHALLENGEID IN  Challenge.ChallengeID%TYPE,
     P_ADMINID     IN  AppUser.UserID%TYPE,
-    P_NOTIFIED    OUT NUMBER
+    P_NOTIFIED    OUT NUMBER,
+    P_TITLE       OUT VARCHAR2   -- so the caller can say '"<title>" is live'
 ) IS
     V_TITLE         Challenge.Title%TYPE;
     V_PUBLISHEDDATE Challenge.PublishedDate%TYPE;
+    V_ENDDATE       Challenge.EndDate%TYPE;
     V_MESSAGE       VARCHAR2(255);
 BEGIN
-    SELECT Title, PublishedDate INTO V_TITLE, V_PUBLISHEDDATE
+    SELECT Title, PublishedDate, EndDate INTO V_TITLE, V_PUBLISHEDDATE, V_ENDDATE
     FROM Challenge
     WHERE ChallengeID = P_CHALLENGEID
-    FOR UPDATE; -- same row lock the JS version takes, so two admins
+    FOR UPDATE; -- row lock held until COMMIT/ROLLBACK, so two admins
                 -- publishing at once can't both broadcast
 
     IF V_PUBLISHEDDATE IS NOT NULL THEN
         ROLLBACK;
         RAISE_APPLICATION_ERROR(-20001, 'This challenge has already been published.');
+    END IF;
+
+    IF V_ENDDATE IS NOT NULL AND V_ENDDATE < SYSDATE THEN
+        ROLLBACK;
+        RAISE_APPLICATION_ERROR(-20006, 'This challenge has already ended. Move its end date forward before publishing.');
     END IF;
 
     UPDATE Challenge
@@ -295,6 +315,7 @@ BEGIN
     FROM AppUser;
 
     P_NOTIFIED := SQL%ROWCOUNT; -- rows affected by the INSERT ... SELECT above
+    P_TITLE    := V_TITLE;
 
     INSERT INTO AdminActivityLog (LogID, AdminID, Action, TargetType, TargetID, TargetLabel, Details)
     VALUES (seq_adminactivitylog.NEXTVAL, P_ADMINID, 'challenge.publish', 'Challenge',
@@ -375,11 +396,9 @@ END;
 -- ------------------------------------------------------------
 -- 9. TRG_NOTIFY_ON_POST_LIKE
 --    AFTER INSERT, FOR EACH ROW -- same pattern as
---    TRG_NOTIFY_ON_FOLLOW. Replaces the createNotification(...)
---    call in postController.likePost (~line 192).
---
---    IMPORTANT: delete that call if you adopt this trigger, or
---    the post's author gets notified twice per like.
+--    TRG_NOTIFY_ON_FOLLOW. Replaced the createNotification(...)
+--    call in postController.likePost, which has been removed --
+--    this trigger is the only writer of the "liked your post" row.
 -- ------------------------------------------------------------
 CREATE OR REPLACE TRIGGER TRG_NOTIFY_ON_POST_LIKE
 AFTER INSERT
@@ -409,9 +428,9 @@ END;
 
 -- ------------------------------------------------------------
 -- 10. TRG_NOTIFY_ON_POST_COMMENT
---     Same pattern again, for PostComment. Replaces the
---     createNotification(...) call in postController.addComment
---     (~line 271) -- delete that call if you adopt this trigger.
+--     Same pattern again, for PostComment. Replaced the
+--     createNotification(...) call in postController.addComment,
+--     which has been removed.
 -- ------------------------------------------------------------
 CREATE OR REPLACE TRIGGER TRG_NOTIFY_ON_POST_COMMENT
 AFTER INSERT
@@ -503,8 +522,11 @@ BEGIN
     END IF;
 
     INSERT INTO AdminActivityLog (LogID, AdminID, Action, TargetType, TargetID, Details)
-    VALUES (seq_adminactivitylog.NEXTVAL, P_ADMINID, 'user.role.update', 'User',
-            P_TARGETUSERID, 'Set IsAdmin = ' || P_ISADMIN);
+    VALUES (seq_adminactivitylog.NEXTVAL, P_ADMINID,
+            CASE WHEN P_ISADMIN = 1 THEN 'user.promote' ELSE 'user.demote' END,
+            'User', P_TARGETUSERID,
+            CASE WHEN P_ISADMIN = 1 THEN 'Granted administrator privileges'
+                 ELSE 'Revoked administrator privileges' END);
 
     COMMIT;
 EXCEPTION

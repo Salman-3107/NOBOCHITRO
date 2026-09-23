@@ -276,6 +276,7 @@ async function updateUser(req, res) {
 
     res.json({ message: 'User updated' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err, { duplicate: 'That email is already in use by another account.' });
     // `field` tells the form which input to highlight -- the only thing that
     // can collide here is the email, which carries uq_appuser_email.
@@ -860,6 +861,7 @@ async function updateReportStatus(req, res) {
 
     res.json({ message: `Report marked ${status.toLowerCase()}` });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err, {
       checkFailed: `Status must be one of: ${REPORT_STATUSES.join(', ')}`,
     });

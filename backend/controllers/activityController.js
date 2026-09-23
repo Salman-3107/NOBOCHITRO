@@ -57,7 +57,7 @@ async function getFollowingActivityFeed(req, res) {
   }
 }
 
-// GET /api/users/:id/activity  (optional auth)
+// GET /api/users/:id/activity  (auth; the owner sees more than other users)
 // A single user's own timeline -- same shape as above, but for one
 // person instead of everyone they follow, and privacy-filtered the
 // same way the journal endpoint is (owner sees everything).

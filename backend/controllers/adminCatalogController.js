@@ -473,6 +473,7 @@ async function updateGenre(req, res) {
 
     res.json({ message: 'Genre updated' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err, { duplicate: 'A genre with that name already exists.' });
     if (known) return res.status(known.status).json({ error: known.error });
     console.error('Update genre error:', err);
@@ -533,6 +534,7 @@ async function deleteGenre(req, res) {
 
     res.json({ message: 'Genre deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err, {
       hasChildren: 'This genre is still referenced elsewhere and cannot be removed.',
     });
@@ -718,6 +720,7 @@ async function updatePerson(req, res) {
 
     res.json({ message: 'Person updated' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err);
     if (known) return res.status(known.status).json({ error: known.error });
     console.error('Update person error:', err);
@@ -775,6 +778,7 @@ async function deletePerson(req, res) {
 
     res.json({ message: 'Person deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err);
     if (known) return res.status(known.status).json({ error: known.error });
     console.error('Delete person error:', err);
@@ -930,6 +934,7 @@ async function createCredit(req, res) {
 
     res.status(201).json({ message: 'Credit added' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err, {
       duplicate: 'That person is already credited on this movie in that role.',
       missingParent: 'That movie or person no longer exists.',
@@ -978,6 +983,7 @@ async function deleteCredit(req, res) {
 
     res.json({ message: 'Credit removed' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Delete credit error:', err);
     res.status(500).json({ error: 'Failed to remove credit' });
   } finally {

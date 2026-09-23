@@ -126,7 +126,9 @@ async function getMovie(req, res) {
     );
 
     const ratingResult = await connection.execute(
-      `SELECT ROUND(AVG(RatingValue), 1) AS AvgRating, COUNT(*) AS RatingCount
+      // Average comes from the stored function FN_MOVIE_AVG_RATING (NULL when
+      // the movie has no reviews yet); the count is a plain aggregate.
+      `SELECT ROUND(FN_MOVIE_AVG_RATING(:movieId), 1) AS AvgRating, COUNT(*) AS RatingCount
        FROM Review WHERE MovieID = :movieId`,
       { movieId }
     );
@@ -148,7 +150,7 @@ async function getMovie(req, res) {
   }
 }
 
-// POST /api/movies  (admin-style add, no auth wired yet — see note in routes)
+// POST /api/movies  (admin only -- requireAuth + requireAdmin in movieRoutes)
 // body: { title, releaseYear, runtime, language, country, synopsis, posterUrl, trailerUrl, boxOfficeCollection, genreIds: [1,2] }
 async function createMovie(req, res) {
   const {
@@ -190,12 +192,14 @@ async function createMovie(req, res) {
         trailerUrl: trailerUrl || null,
         boxOfficeCollection: boxOfficeCollection || null,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: !genreIds || genreIds.length === 0 }
+      }
     );
 
     const newMovieId = result.outBinds.newId[0];
 
+    // Genre links go in the SAME transaction as the Movie row: if any genre
+    // insert fails, the movie is rolled back too instead of being left behind
+    // with half its genres.
     if (genreIds && genreIds.length > 0) {
       for (const genreId of genreIds) {
         await connection.execute(
@@ -203,11 +207,12 @@ async function createMovie(req, res) {
           { newMovieId, genreId }
         );
       }
-      await connection.commit();
     }
+    await connection.commit();
 
     res.status(201).json({ message: 'Movie created', movieId: newMovieId });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Create movie error:', err);
     res.status(500).json({ error: 'Failed to create movie' });
   } finally {

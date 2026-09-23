@@ -1,6 +1,6 @@
 const { getPool } = require('../db');
 
-// GET /api/users/:id/taste-match/:otherId  (public)
+// GET /api/users/:id/taste-match/:otherId  (auth)
 //
 // Algorithm: find every movie BOTH users have rated (a self-join on Review
 // via MovieID), then measure how close their ratings are. Ratings are 1-10,
@@ -96,8 +96,15 @@ async function getTasteMatch(req, res) {
       0
     );
     const avgDifference = totalDifference / sharedMovies.length;
-    const MAX_POSSIBLE_DIFFERENCE = 9; // ratings run 1-10
-    const tasteMatchPercent = Math.round((1 - avgDifference / MAX_POSSIBLE_DIFFERENCE) * 100);
+
+    // The 0-100 compatibility score is computed inside the database by the
+    // stored function FN_TASTE_MATCH_SCORE (average absolute rating gap over
+    // the shared movies, scaled by the largest possible gap of 9).
+    const scoreResult = await connection.execute(
+      `SELECT FN_TASTE_MATCH_SCORE(:userIdA, :userIdB) AS Score FROM DUAL`,
+      { userIdA, userIdB }
+    );
+    const tasteMatchPercent = Math.round(scoreResult.rows[0].SCORE);
 
     // Movies both users rated highly (8+) -- a human-readable explanation of
     // why the match score came out the way it did.

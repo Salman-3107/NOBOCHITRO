@@ -154,9 +154,9 @@ async function register(req, res) {
         passwordHash,
         displayName,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: true }
+      }
     );
+    await connection.commit();
 
     const newUserId = result.outBinds.newId[0];
 
@@ -167,6 +167,7 @@ async function register(req, res) {
       user: { userId: newUserId, username, email, displayName, isAdmin: false },
     });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     // ORA-00001: unique constraint violated. The pre-check above catches the
     // normal case; this only fires when two people register the same value in
     // the same instant, so the database stays the last word either way.
@@ -265,12 +266,17 @@ async function logout(req, res) {
     await connection.execute(
       `INSERT INTO RevokedToken (TokenJTI, UserID, ExpiresAt)
        VALUES (:jti, :userId, TO_DATE('1970-01-01', 'YYYY-MM-DD') + (:exp / 86400))`,
-      { jti, userId, exp },
-      { autoCommit: true }
+      { jti, userId, exp }
     );
+    // Housekeeping DELETE joins the same transaction, so ONE commit covers
+    // both the revocation and the cleanup. (Previously only the INSERT was
+    // committed and the cleanup DELETE was silently rolled back when the
+    // connection closed.)
     await cleanupExpiredRevocations(connection);
+    await connection.commit();
     res.json({ message: 'Logged out successfully' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     // Already revoked (e.g. double-clicked logout) -- not an error from the
     // user's point of view, the end state they want is already true.
     if (err.errorNum === 1) {

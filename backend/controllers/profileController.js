@@ -9,11 +9,13 @@ async function updateMyProfile(req, res) {
       `UPDATE AppUser SET DisplayName = NVL(:displayName, DisplayName), Bio = NVL(:bio, Bio),
        ProfilePictureURL = NVL(:profilePictureUrl, ProfilePictureURL), CoverPictureURL = NVL(:coverPictureUrl, CoverPictureURL)
        WHERE UserID = :userId`,
-      { displayName: displayName || null, bio: bio ?? null, profilePictureUrl: profilePictureUrl || null, coverPictureUrl: coverPictureUrl || null, userId: req.user.userId },
-      { autoCommit: true }
+      { displayName: displayName || null, bio: bio ?? null, profilePictureUrl: profilePictureUrl || null, coverPictureUrl: coverPictureUrl || null, userId: req.user.userId }
     );
+    await connection.commit();
     res.json({ message: 'Profile updated' });
-  } catch (error) { console.error('Update profile error:', error); res.status(500).json({ error: 'Failed to update profile' }); }
+  } catch (error) {
+    if (connection) await connection.rollback().catch(() => {});
+    console.error('Update profile error:', error); res.status(500).json({ error: 'Failed to update profile' }); }
   finally { if (connection) await connection.close(); }
 }
 

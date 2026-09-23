@@ -1,34 +1,6 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
 
-// Finds a user's system list of a given type (e.g. 'System-Watchlist'),
-// creating it on first use. This is what makes "Add to Watchlist"
-// work with a single click instead of asking the user to create a list first.
-async function getOrCreateSystemList(connection, userId, listType) {
-  const existing = await connection.execute(
-    `SELECT ListID FROM BucketList WHERE UserID = :userId AND ListType = :listType`,
-    { userId, listType }
-  );
-
-  if (existing.rows.length > 0) {
-    return existing.rows[0].LISTID;
-  }
-
-  const title = listType === 'System-Watchlist' ? 'Watchlist' : 'Favorites';
-  const result = await connection.execute(
-    `INSERT INTO BucketList (ListID, UserID, Title, Visibility, ListType)
-     VALUES (seq_bucketlist.NEXTVAL, :userId, :title, 'Private', :listType)
-     RETURNING ListID INTO :newId`,
-    {
-      userId,
-      title,
-      listType,
-      newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-    }
-  );
-  return result.outBinds.newId[0];
-}
-
 // POST /api/movies/:id/watchlist  (auth) -- add a movie to MY watchlist
 async function addToWatchlist(req, res) {
   const movieId = Number(req.params.id);
@@ -37,23 +9,30 @@ async function addToWatchlist(req, res) {
   let connection;
   try {
     connection = await getPool().getConnection();
-    const listId = await getOrCreateSystemList(connection, userId, 'System-Watchlist');
 
-    const existing = await connection.execute(
-      `SELECT 1 FROM BucketListItem WHERE ListID = :listId AND MovieID = :movieId`,
-      { listId, movieId }
+    // Stored procedure PROC_ADD_TO_WATCHLIST does the whole workflow in one
+    // round trip and one transaction across two tables: get-or-create the
+    // user's 'System-Watchlist' row in BucketList, then insert the movie into
+    // BucketListItem. The procedure itself COMMITs on success and ROLLBACKs
+    // on any failure.
+    await connection.execute(
+      `BEGIN PROC_ADD_TO_WATCHLIST(:userId, :movieId, :listId); END;`,
+      {
+        userId,
+        movieId,
+        listId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      }
     );
-
-    if (existing.rows.length === 0) {
-      await connection.execute(
-        `INSERT INTO BucketListItem (ListID, MovieID, DateAdded) VALUES (:listId, :movieId, SYSDATE)`,
-        { listId, movieId }
-      );
-    }
-    await connection.commit();
 
     res.status(201).json({ message: 'Added to watchlist' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
+    // ORA-20003 (raised by the procedure): already on the list. Adding twice
+    // has always been treated as success, not an error, so keep that.
+    if (err.errorNum === 20003) {
+      return res.status(200).json({ message: 'Already on your watchlist' });
+    }
+    // ORA-02291: the MovieID doesn't exist (FK violation inside the procedure)
     if (err.errorNum === 2291) {
       return res.status(404).json({ error: 'Movie not found' });
     }
@@ -76,15 +55,17 @@ async function removeFromWatchlist(req, res) {
       `DELETE FROM BucketListItem
        WHERE MovieID = :movieId
        AND ListID = (SELECT ListID FROM BucketList WHERE UserID = :userId AND ListType = 'System-Watchlist')`,
-      { movieId, userId },
-      { autoCommit: true }
+      { movieId, userId }
     );
 
     if (result.rowsAffected === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'Movie was not in your watchlist' });
     }
+    await connection.commit();
     res.json({ message: 'Removed from watchlist' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Remove from watchlist error:', err);
     res.status(500).json({ error: 'Failed to remove from watchlist' });
   } finally {
@@ -92,7 +73,7 @@ async function removeFromWatchlist(req, res) {
   }
 }
 
-// GET /api/users/:id/watchlist  (optional auth)
+// GET /api/users/:id/watchlist  (auth; the owner sees more than other users)
 // You always see your own. Someone else's is only readable if they set that
 // list to Public -- otherwise 403, even though the URL is guessable. Changing
 // the :id in the address bar is the exact attack this blocks.
@@ -168,11 +149,12 @@ async function createList(req, res) {
         description: description || null,
         visibility: visibility || 'Private',
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: true }
+      }
     );
+    await connection.commit();
     res.status(201).json({ message: 'List created', listId: result.outBinds.newId[0] });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Create list error:', err);
     res.status(500).json({ error: 'Failed to create list' });
   } finally {
@@ -206,7 +188,7 @@ async function getMyLists(req, res) {
   }
 }
 
-// GET /api/bucket-lists/:id  (optional auth)
+// GET /api/bucket-lists/:id  (auth; the owner sees more than other users)
 // Object-level check: owning the list is what grants access, not merely
 // knowing its id. A Private list belonging to someone else is 403 even for
 // a logged-in user, and 403 for an anonymous one -- incrementing :id through
@@ -282,11 +264,12 @@ async function addItemToList(req, res) {
 
     await connection.execute(
       `INSERT INTO BucketListItem (ListID, MovieID, DateAdded) VALUES (:listId, :movieId, SYSDATE)`,
-      { listId, movieId },
-      { autoCommit: true }
+      { listId, movieId }
     );
+    await connection.commit();
     res.status(201).json({ message: 'Movie added to list' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 1) {
       return res.status(409).json({ error: 'Movie is already in this list' });
     }
@@ -323,11 +306,12 @@ async function removeItemFromList(req, res) {
 
     await connection.execute(
       `DELETE FROM BucketListItem WHERE ListID = :listId AND MovieID = :movieId`,
-      { listId, movieId },
-      { autoCommit: true }
+      { listId, movieId }
     );
+    await connection.commit();
     res.json({ message: 'Movie removed from list' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Remove item from list error:', err);
     res.status(500).json({ error: 'Failed to remove movie from list' });
   } finally {

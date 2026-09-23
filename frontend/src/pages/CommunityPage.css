@@ -397,3 +397,17 @@
         display: none
     }
 }
+
+/* Post opened from a notification: brief accent glow so the eye finds it. */
+.community-post--focus {
+  animation: community-post-focus 2.6s ease-out;
+}
+
+@keyframes community-post-focus {
+  0%, 55% {
+    box-shadow: 0 0 0 2px var(--accent-bright), 0 0 26px rgba(255, 101, 117, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent, 0 0 0 rgba(255, 101, 117, 0);
+  }
+}

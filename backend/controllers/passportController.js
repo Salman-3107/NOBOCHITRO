@@ -1,6 +1,6 @@
 const { getPool } = require('../db');
 
-// GET /api/users/:id/passport  (optional auth)
+// GET /api/users/:id/passport  (auth; the owner sees more than other users)
 // Based entirely on Review, not JournalEntry: you can only stamp a
 // country/genre/director if you actually reviewed a film from it. Review
 // has no Privacy column (a review is always public), so there's no
@@ -106,7 +106,7 @@ async function getMoviePassport(req, res) {
   }
 }
 
-// GET /api/users/:id/passport/countries/:country/movies  (optional auth)
+// GET /api/users/:id/passport/countries/:country/movies  (auth; the owner sees more than other users)
 // Backs the "which films stamped this country?" drawer on the passport page.
 // Also Review-based now: one card per reviewed movie from that country,
 // each with your rating and when you posted the review.

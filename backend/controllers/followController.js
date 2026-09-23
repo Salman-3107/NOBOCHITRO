@@ -1,5 +1,4 @@
 const { getPool } = require('../db');
-const { createNotification } = require('./notificationController');
 
 // POST /api/users/:id/follow  (auth)
 async function followUser(req, res) {
@@ -15,27 +14,18 @@ async function followUser(req, res) {
     connection = await getPool().getConnection();
     await connection.execute(
       `INSERT INTO UserFollow (FollowerID, FollowedID, FollowDate) VALUES (:followerId, :followedId, SYSDATE)`,
-      { followerId, followedId },
-      { autoCommit: false }
+      { followerId, followedId }
     );
 
-    const followerResult = await connection.execute(
-      `SELECT Username FROM AppUser WHERE UserID = :followerId`,
-      { followerId }
-    );
-    const followerUsername = followerResult.rows[0]?.USERNAME || 'Someone';
-
-    await createNotification(
-      connection,
-      followedId,
-      'Follow',
-      `${followerUsername} started following you`,
-      followerId
-    );
+    // The "X started following you" notification is written by the database
+    // itself: trigger TRG_NOTIFY_ON_FOLLOW fires on this INSERT, inside this
+    // same transaction, so the follow and its notification commit (or roll
+    // back) together.
     await connection.commit();
 
     res.status(201).json({ message: 'Now following user' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     // ORA-00001: composite PK (FollowerID, FollowedID) already exists -- already following
     if (err.errorNum === 1) {
       return res.status(409).json({ error: 'You already follow this user' });
@@ -61,14 +51,16 @@ async function unfollowUser(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM UserFollow WHERE FollowerID = :followerId AND FollowedID = :followedId`,
-      { followerId, followedId },
-      { autoCommit: true }
+      { followerId, followedId }
     );
     if (result.rowsAffected === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'You do not follow this user' });
     }
+    await connection.commit();
     res.json({ message: 'Unfollowed user' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Unfollow user error:', err);
     res.status(500).json({ error: 'Failed to unfollow user' });
   } finally {
@@ -76,7 +68,7 @@ async function unfollowUser(req, res) {
   }
 }
 
-// GET /api/users/:id/followers  (public) -- who follows this user
+// GET /api/users/:id/followers  (auth) -- who follows this user
 async function getFollowers(req, res) {
   const userId = Number(req.params.id);
 
@@ -100,7 +92,7 @@ async function getFollowers(req, res) {
   }
 }
 
-// GET /api/users/:id/following  (public) -- who this user follows
+// GET /api/users/:id/following  (auth) -- who this user follows
 async function getFollowing(req, res) {
   const userId = Number(req.params.id);
 

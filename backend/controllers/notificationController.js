@@ -1,9 +1,13 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
 
-// Shared helper -- called from followController and postController on
-// the SAME connection/transaction as the action that triggered it, so
-// a notification never gets created for an action that itself failed.
+// Shared helper -- now only used for admin announcements
+// (adminEngagementController.broadcastAnnouncement). Follow / like / comment
+// notifications are written by database triggers (TRG_NOTIFY_ON_FOLLOW,
+// TRG_NOTIFY_ON_POST_LIKE, TRG_NOTIFY_ON_POST_COMMENT), and challenge
+// publishing by PROC_PUBLISH_CHALLENGE.
+// It runs on the SAME connection/transaction as the caller, so a notification
+// never gets created for an action that itself failed.
 async function createNotification(connection, userId, notifType, message, relatedId) {
   await connection.execute(
     `INSERT INTO Notification (NotificationID, UserID, NotifType, Message, RelatedID)
@@ -46,14 +50,16 @@ async function markRead(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `UPDATE Notification SET IsRead = 1 WHERE NotificationID = :notificationId AND UserID = :userId`,
-      { notificationId, userId },
-      { autoCommit: true }
+      { notificationId, userId }
     );
     if (result.rowsAffected === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'Notification not found' });
     }
+    await connection.commit();
     res.json({ message: 'Marked as read' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Mark notification read error:', err);
     res.status(500).json({ error: 'Failed to update notification' });
   } finally {
@@ -70,11 +76,12 @@ async function markAllRead(req, res) {
     connection = await getPool().getConnection();
     await connection.execute(
       `UPDATE Notification SET IsRead = 1 WHERE UserID = :userId AND IsRead = 0`,
-      { userId },
-      { autoCommit: true }
+      { userId }
     );
+    await connection.commit();
     res.json({ message: 'All notifications marked as read' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Mark all notifications read error:', err);
     res.status(500).json({ error: 'Failed to update notifications' });
   } finally {

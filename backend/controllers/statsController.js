@@ -4,7 +4,7 @@ const { hasReports, hasChallengeStatus } = require('../utils/adminSchema');
 // Everything in this file is read-only aggregate SQL -- GROUP BY, COUNT,
 // AVG, SUM over the existing schema. No new tables are needed.
 
-// GET /api/users/:id/stats  (optional auth)
+// GET /api/users/:id/stats  (auth; the owner sees more than other users)
 //
 // Same privacy rule the journal and passport already use: the owner's numbers
 // are built from ALL their journal entries, everyone else's view is built from
@@ -123,7 +123,7 @@ async function getUserStats(req, res) {
   }
 }
 
-// GET /api/movies/:id/rating-distribution  (public)
+// GET /api/movies/:id/rating-distribution  (auth)
 // Feeds the histogram on the movie details page. Every rating 1-10 is
 // returned even when nobody picked it, so the chart keeps a stable shape
 // instead of collapsing rows that happen to be empty.

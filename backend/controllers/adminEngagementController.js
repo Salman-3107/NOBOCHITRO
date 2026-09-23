@@ -1,3 +1,4 @@
+const oracledb = require('oracledb');
 const { getPool } = require('../db');
 const { createNotification } = require('./notificationController');
 const { logAdminAction } = require('../utils/adminAudit');
@@ -262,74 +263,37 @@ async function publishChallenge(req, res) {
       });
     }
 
-    // FOR UPDATE takes a row lock for the length of the transaction, so two
-    // admins clicking Publish at the same instant serialise here instead of
-    // both reading PublishedDate as NULL and both broadcasting.
-    const challenge = await connection.execute(
-      `SELECT Title, Status, PublishedDate, EndDate
-       FROM Challenge WHERE ChallengeID = :challengeId FOR UPDATE`,
-      { challengeId }
-    );
-    if (challenge.rows.length === 0) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Challenge not found' });
-    }
-
-    const { TITLE: title, PUBLISHEDDATE: publishedDate, ENDDATE: endDate } = challenge.rows[0];
-
-    if (publishedDate) {
-      await connection.rollback();
-      return res.status(409).json({
-        error: 'This challenge has already been published. Users were notified on '
-          + `${new Date(publishedDate).toLocaleDateString()}.`,
-      });
-    }
-
-    if (endDate && new Date(endDate).getTime() < Date.now()) {
-      await connection.rollback();
-      return res.status(400).json({
-        error: 'This challenge has already ended. Move its end date forward before publishing.',
-      });
-    }
-
-    await connection.execute(
-      `UPDATE Challenge
-          SET Status = 'Published', PublishedDate = SYSDATE
-        WHERE ChallengeID = :challengeId`,
-      { challengeId }
+    // Stored procedure PROC_PUBLISH_CHALLENGE runs the whole workflow as ONE
+    // transaction across three tables:
+    //   1. Challenge        -- SELECT ... FOR UPDATE, then Status/PublishedDate
+    //   2. Notification     -- one row per user (a single INSERT ... SELECT)
+    //   3. AdminActivityLog -- which admin published it
+    // It COMMITs when all three succeed and ROLLBACKs if any step fails, and
+    // PublishedDate is what stops a second click from notifying everyone twice.
+    const result = await connection.execute(
+      `BEGIN PROC_PUBLISH_CHALLENGE(:challengeId, :adminId, :notified, :title); END;`,
+      {
+        challengeId,
+        adminId: req.user.userId,
+        notified: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+        title: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 200 },
+      }
     );
 
-    const recipients = await connection.execute(`SELECT UserID FROM AppUser`);
-    const message = `New weekly challenge: ${title}`;
-
-    for (const recipient of recipients.rows) {
-      await createNotification(
-        connection, recipient.USERID, 'WeeklyChallenge',
-        // Notification.Message is VARCHAR2(255) -- a 200-character challenge
-        // title would otherwise fail the whole broadcast with ORA-12899
-        // partway through.
-        message.length > 255 ? `${message.slice(0, 254)}\u2026` : message,
-        challengeId
-      );
-    }
-
-    await logAdminAction(connection, {
-      adminId: req.user.userId,
-      action: 'challenge.publish',
-      targetType: 'Challenge',
-      targetId: challengeId,
-      targetLabel: title,
-      details: `Notified ${recipients.rows.length} user(s)`,
-    });
-
-    await connection.commit();
+    const notified = result.outBinds.notified;
+    const title = result.outBinds.title;
 
     res.json({
-      message: `"${title}" is live. ${recipients.rows.length} user${recipients.rows.length === 1 ? '' : 's'} notified.`,
-      notified: recipients.rows.length,
+      message: `"${title}" is live. ${notified} user${notified === 1 ? '' : 's'} notified.`,
+      notified,
     });
   } catch (err) {
     if (connection) await connection.rollback().catch(() => {});
+    // Errors the procedure raises on purpose (RAISE_APPLICATION_ERROR):
+    //   -20001 already published, -20002 not found, -20006 already ended.
+    if (err.errorNum === 20001) return res.status(409).json({ error: 'This challenge has already been published.' });
+    if (err.errorNum === 20002) return res.status(404).json({ error: 'Challenge not found' });
+    if (err.errorNum === 20006) return res.status(400).json({ error: 'This challenge has already ended. Move its end date forward before publishing.' });
     console.error('Publish challenge error:', err);
     res.status(500).json({ error: 'Failed to publish the challenge' });
   } finally {
@@ -372,6 +336,7 @@ async function archiveChallenge(req, res) {
 
     res.json({ message: 'Challenge archived' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     const known = describeOracleError(err);
     if (known) return res.status(known.status).json({ error: known.error });
     console.error('Archive challenge error:', err);
@@ -520,8 +485,9 @@ async function broadcastAnnouncement(req, res) {
 // Deliberately NOT a second ranking system. The ordering metric is the same
 // one leaderboardController uses for the public board -- this view simply
 // shows all four numbers side by side and adds the XP total, which is summed
-// from Challenge.XPReward rather than stored on AppUser (there is no XP
-// column, and inventing one would put a denormalised counter in the schema).
+// from Challenge.XPReward by the stored function FN_USER_TOTAL_XP rather than
+// stored on AppUser (there is no XP column, and inventing one would put a
+// denormalised counter in the schema).
 const LEADERBOARD_TYPES = {
   most_watched: 'MoviesWatched',
   most_reviewed: 'Reviews',
@@ -548,10 +514,7 @@ async function getLeaderboard(req, res) {
                 (SELECT COUNT(*) FROM Review r WHERE r.UserID = u.UserID) AS Reviews,
                 (SELECT COUNT(*) FROM UserChallengeProgress p
                   WHERE p.UserID = u.UserID AND p.Completed = 1) AS ChallengesCompleted,
-                (SELECT NVL(SUM(c.XPReward), 0)
-                   FROM UserChallengeProgress p
-                   JOIN Challenge c ON c.ChallengeID = p.ChallengeID
-                  WHERE p.UserID = u.UserID AND p.Completed = 1) AS Points
+                FN_USER_TOTAL_XP(u.UserID) AS Points
          FROM AppUser u
        )
        ORDER BY ${orderColumn} DESC, Points DESC, Username ASC

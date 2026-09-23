@@ -1,6 +1,5 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
-const { createNotification } = require('./notificationController');
 
 // POST /api/posts  (auth)
 // body: { movieId, postText }
@@ -25,11 +24,12 @@ async function createPost(req, res) {
         movieId,
         postText,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: true }
+      }
     );
+    await connection.commit();
     res.status(201).json({ message: 'Post created', postId: result.outBinds.newId[0] });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 2291) {
       return res.status(404).json({ error: 'Movie not found' });
     }
@@ -40,7 +40,7 @@ async function createPost(req, res) {
   }
 }
 
-// GET /api/posts  (public)
+// GET /api/posts  (auth)
 // Optional query param: ?movieId= to see posts about one movie.
 // Returns like count + comment count per post via subqueries, which is
 // far cheaper than joining and grouping across three tables at once.
@@ -86,7 +86,7 @@ async function listPosts(req, res) {
   }
 }
 
-// GET /api/posts/:id  (public) -- single post with its comments
+// GET /api/posts/:id  (auth) -- single post with its comments
 async function getPost(req, res) {
   const postId = Number(req.params.id);
 
@@ -152,11 +152,12 @@ async function deletePost(req, res) {
     // so we don't need to manually clean those up.
     await connection.execute(
       `DELETE FROM Post WHERE PostID = :postId`,
-      { postId },
-      { autoCommit: true }
+      { postId }
     );
+    await connection.commit();
     res.json({ message: 'Post deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Delete post error:', err);
     res.status(500).json({ error: 'Failed to delete post' });
   } finally {
@@ -176,25 +177,17 @@ async function likePost(req, res) {
     connection = await getPool().getConnection();
     await connection.execute(
       `INSERT INTO PostLike (PostID, UserID, LikeDate) VALUES (:postId, :userId, SYSDATE)`,
-      { postId, userId },
-      { autoCommit: false }
+      { postId, userId }
     );
 
-    const postResult = await connection.execute(
-      `SELECT p.UserID AS OwnerID, u.Username FROM Post p JOIN AppUser u ON u.UserID = :userId WHERE p.PostID = :postId`,
-      { userId, postId }
-    );
-    const ownerId = postResult.rows[0]?.OWNERID;
-    const likerUsername = postResult.rows[0]?.USERNAME || 'Someone';
-
-    // Don't notify yourself for liking your own post.
-    if (ownerId && ownerId !== userId) {
-      await createNotification(connection, ownerId, 'PostLike', `${likerUsername} liked your post`, postId);
-    }
+    // The "X liked your post" notification (skipped when you like your own
+    // post) is written by trigger TRG_NOTIFY_ON_POST_LIKE inside this same
+    // transaction -- like and notification commit or roll back together.
     await connection.commit();
 
     res.status(201).json({ message: 'Post liked' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 1) {
       return res.status(409).json({ error: 'You already liked this post' });
     }
@@ -218,14 +211,16 @@ async function unlikePost(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM PostLike WHERE PostID = :postId AND UserID = :userId`,
-      { postId, userId },
-      { autoCommit: true }
+      { postId, userId }
     );
     if (result.rowsAffected === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'You have not liked this post' });
     }
+    await connection.commit();
     res.json({ message: 'Post unliked' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Unlike post error:', err);
     res.status(500).json({ error: 'Failed to unlike post' });
   } finally {
@@ -256,24 +251,16 @@ async function addComment(req, res) {
         userId,
         commentText,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: false }
+      }
     );
 
-    const postResult = await connection.execute(
-      `SELECT p.UserID AS OwnerID, u.Username FROM Post p JOIN AppUser u ON u.UserID = :userId WHERE p.PostID = :postId`,
-      { userId, postId }
-    );
-    const ownerId = postResult.rows[0]?.OWNERID;
-    const commenterUsername = postResult.rows[0]?.USERNAME || 'Someone';
-
-    if (ownerId && ownerId !== userId) {
-      await createNotification(connection, ownerId, 'PostComment', `${commenterUsername} commented on your post`, postId);
-    }
+    // The "X commented on your post" notification is written by trigger
+    // TRG_NOTIFY_ON_POST_COMMENT inside this same transaction.
     await connection.commit();
 
     res.status(201).json({ message: 'Comment added', commentId: result.outBinds.newId[0] });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 2291) {
       return res.status(404).json({ error: 'Post not found' });
     }
@@ -306,11 +293,12 @@ async function deleteComment(req, res) {
 
     await connection.execute(
       `DELETE FROM PostComment WHERE CommentID = :commentId`,
-      { commentId },
-      { autoCommit: true }
+      { commentId }
     );
+    await connection.commit();
     res.json({ message: 'Comment deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Delete comment error:', err);
     res.status(500).json({ error: 'Failed to delete comment' });
   } finally {

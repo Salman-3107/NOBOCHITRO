@@ -62,6 +62,10 @@ async function verifyToken(token) {
 
 // Hard gate. 401 on anything that isn't a live, unrevoked token.
 async function requireAuth(req, res, next) {
+  // The global gate in server.js has usually verified this request already.
+  // Skip the second RevokedToken lookup when it has.
+  if (req.user) return next();
+
   const token = readBearerToken(req);
   if (!token) {
     return res.status(401).json({ error: 'Missing or malformed Authorization header' });
@@ -76,8 +80,11 @@ async function requireAuth(req, res, next) {
   next();
 }
 
-// Soft gate for routes that show more to the owner than to the public
-// (a user's journal, passport, activity). A valid token sets req.user;
+// Soft gate for routes that show more to the owner than to other users
+// (a user's journal, passport, activity). Every /api route except register
+// and login now sits behind the global requireAuth gate in server.js, so by
+// the time this runs req.user is normally already set; it remains so these
+// routes stay correct if they are ever mounted on their own. A valid token sets req.user;
 // anything else -- absent, expired, or REVOKED -- falls through as an
 // anonymous viewer rather than an authenticated one.
 //
@@ -85,6 +92,8 @@ async function requireAuth(req, res, next) {
 // it, a logged-out token would keep unlocking the owner-only view of
 // someone's private journal, which is exactly what logout is meant to stop.
 async function optionalAuth(req, res, next) {
+  if (req.user) return next();
+
   const token = readBearerToken(req);
   if (!token) return next();
 

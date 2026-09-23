@@ -87,6 +87,7 @@ async function updateMovie(req, res) {
 
     res.json({ message: 'Movie updated' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Update movie error:', err);
     res.status(500).json({ error: 'Failed to update movie' });
   } finally {
@@ -131,6 +132,7 @@ async function deleteMovie(req, res) {
 
     res.json({ message: 'Movie deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     // ORA-02292: a child row exists somewhere WITHOUT cascade delete set up
     if (err.errorNum === 2292) {
       return res.status(409).json({
@@ -173,6 +175,7 @@ async function createGenre(req, res) {
 
     res.status(201).json({ message: 'Genre created', genreId });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 1) {
       return res.status(409).json({ error: 'Genre already exists' });
     }
@@ -217,6 +220,7 @@ async function createPerson(req, res) {
 
     res.status(201).json({ message: 'Person created', personId });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Create person error:', err);
     res.status(500).json({ error: 'Failed to create person' });
   } finally {
@@ -257,6 +261,7 @@ async function addCredit(req, res) {
 
     res.status(201).json({ message: 'Credit added' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 2291) {
       return res.status(404).json({ error: 'Movie or person not found' });
     }
@@ -394,6 +399,7 @@ async function updateChallenge(req, res) {
 
     res.json({ message: 'Challenge updated' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Update challenge error:', err);
     res.status(500).json({ error: 'Failed to update challenge' });
   } finally {
@@ -426,6 +432,7 @@ async function deleteChallenge(req, res) {
 
     res.json({ message: 'Challenge deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Delete challenge error:', err);
     res.status(500).json({ error: 'Failed to delete challenge' });
   } finally {
@@ -460,6 +467,7 @@ async function moderateDeletePost(req, res) {
 
     res.json({ message: 'Post removed by moderator' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Moderate delete post error:', err);
     res.status(500).json({ error: 'Failed to remove post' });
   } finally {
@@ -492,6 +500,7 @@ async function moderateDeleteComment(req, res) {
 
     res.json({ message: 'Comment removed by moderator' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Moderate delete comment error:', err);
     res.status(500).json({ error: 'Failed to remove comment' });
   } finally {
@@ -535,6 +544,7 @@ async function moderateDeleteReview(req, res) {
 
     res.json({ message: 'Review removed by moderator' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Moderate delete review error:', err);
     res.status(500).json({ error: 'Failed to remove review' });
   } finally {
@@ -585,39 +595,28 @@ async function setUserRole(req, res) {
   try {
     connection = await getPool().getConnection();
 
-    // Guard the one irreversible case: demoting the final admin leaves nobody
-    // able to promote anyone back, and the only fix is editing the database
-    // by hand.
-    if (!isAdmin) {
-      const adminCount = await connection.execute(
-        `SELECT COUNT(*) AS Total FROM AppUser WHERE IsAdmin = 1`
-      );
-      if (adminCount.rows[0].TOTAL <= 1) {
-        return res.status(409).json({ error: 'Cannot demote the only remaining admin' });
-      }
-    }
-
-    const result = await connection.execute(
-      `UPDATE AppUser SET IsAdmin = :isAdmin WHERE UserID = :targetUserId`,
-      { isAdmin: isAdmin ? 1 : 0, targetUserId }
+    // Stored procedure PROC_SET_USER_ROLE does the three steps as one
+    // transaction across two tables, and the database itself enforces the
+    // "never demote the last admin" rule:
+    //   1. guard: refuse to demote the only remaining admin (ORA-20004)
+    //   2. UPDATE AppUser.IsAdmin                            (ORA-20005 if no such user)
+    //   3. INSERT AdminActivityLog -- a privilege change is the most important
+    //      thing an audit log can record, so it commits with the change itself.
+    // The procedure COMMITs on success and ROLLBACKs on any failure.
+    await connection.execute(
+      `BEGIN PROC_SET_USER_ROLE(:targetUserId, :isAdmin, :adminId); END;`,
+      { targetUserId, isAdmin: isAdmin ? 1 : 0, adminId: req.user.userId }
     );
-    if (result.rowsAffected === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // A privilege change is the single most important thing an audit log can
-    // record, so it is written in the same transaction as the change itself.
-    await logAdminAction(connection, {
-      adminId: req.user.userId,
-      action: isAdmin ? 'user.promote' : 'user.demote',
-      targetType: 'User',
-      targetId: targetUserId,
-      details: isAdmin ? 'Granted administrator privileges' : 'Revoked administrator privileges',
-    });
-    await connection.commit();
 
     res.json({ message: `User ${isAdmin ? 'promoted to admin' : 'demoted to regular user'}` });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
+    if (err.errorNum === 20004) {
+      return res.status(409).json({ error: 'Cannot demote the only remaining admin' });
+    }
+    if (err.errorNum === 20005) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     console.error('Set user role error:', err);
     res.status(500).json({ error: 'Failed to update user role' });
   } finally {

@@ -49,8 +49,7 @@ async function createEntry(req, res) {
         privacy: privacy === 'Public' ? 'Public' : 'Private',
         journalText: journalText || null,
         newId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      },
-      { autoCommit: false }
+      }
     );
 
     const journalId = result.outBinds.newId[0];
@@ -67,6 +66,7 @@ async function createEntry(req, res) {
       rewatchNumber,
     });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     if (err.errorNum === 2291) {
       return res.status(404).json({ error: 'Movie not found' });
     }
@@ -77,7 +77,7 @@ async function createEntry(req, res) {
   }
 }
 
-// GET /api/users/:id/journal  (optional auth)
+// GET /api/users/:id/journal  (auth; the owner sees more than other users)
 // Shows ALL entries if the viewer IS that user; otherwise only Public ones.
 async function getUserJournal(req, res) {
   const profileUserId = Number(req.params.id);
@@ -112,7 +112,7 @@ async function getUserJournal(req, res) {
   }
 }
 
-// GET /api/journal/:id  (optional auth) -- single entry, respects privacy
+// GET /api/journal/:id  (auth; the owner sees more than other users) -- single entry, respects privacy
 async function getEntry(req, res) {
   const journalId = Number(req.params.id);
   const viewerId = req.user ? req.user.userId : null;
@@ -159,14 +159,16 @@ async function deleteEntry(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM JournalEntry WHERE JournalID = :journalId AND UserID = :userId`,
-      { journalId, userId },
-      { autoCommit: true }
+      { journalId, userId }
     );
     if (result.rowsAffected === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'Journal entry not found, or not yours' });
     }
+    await connection.commit();
     res.json({ message: 'Journal entry deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Delete journal entry error:', err);
     res.status(500).json({ error: 'Failed to delete journal entry' });
   } finally {

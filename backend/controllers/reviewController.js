@@ -28,20 +28,21 @@ async function upsertReview(req, res) {
         `UPDATE Review
          SET RatingValue = :rating, ReviewText = :reviewText, ReviewDate = SYSDATE
          WHERE UserID = :userId AND MovieID = :movieId`,
-        { rating, reviewText: reviewText || null, userId, movieId },
-        { autoCommit: true }
+        { rating, reviewText: reviewText || null, userId, movieId }
       );
+      await connection.commit();
       return res.json({ message: 'Review updated' });
     }
 
     await connection.execute(
       `INSERT INTO Review (UserID, MovieID, RatingValue, ReviewText, ReviewDate)
        VALUES (:userId, :movieId, :rating, :reviewText, SYSDATE)`,
-      { userId, movieId, rating, reviewText: reviewText || null },
-      { autoCommit: true }
+      { userId, movieId, rating, reviewText: reviewText || null }
     );
+    await connection.commit();
     res.status(201).json({ message: 'Review created' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     // ORA-02291: movie doesn't exist (FK violation)
     if (err.errorNum === 2291) {
       return res.status(404).json({ error: 'Movie not found' });
@@ -54,7 +55,7 @@ async function upsertReview(req, res) {
 }
 
 // GET /api/movies/:id/reviews
-// Public: anyone can see reviews for a movie.
+// Auth: any signed-in user can see reviews for a movie.
 async function getMovieReviews(req, res) {
   const movieId = Number(req.params.id);
 
@@ -88,15 +89,17 @@ async function deleteReview(req, res) {
     connection = await getPool().getConnection();
     const result = await connection.execute(
       `DELETE FROM Review WHERE UserID = :userId AND MovieID = :movieId`,
-      { userId, movieId },
-      { autoCommit: true }
+      { userId, movieId }
     );
 
     if (result.rowsAffected === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'No review found to delete' });
     }
+    await connection.commit();
     res.json({ message: 'Review deleted' });
   } catch (err) {
+    if (connection) await connection.rollback().catch(() => {});
     console.error('Delete review error:', err);
     res.status(500).json({ error: 'Failed to delete review' });
   } finally {

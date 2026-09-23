@@ -73,6 +73,13 @@ export function searchMovies(query) {
   return apiRequest(`/search?q=${encodeURIComponent(query)}`);
 }
 
+// Find other members by username or display name (powers the header's
+// "People" dropdown). Resolves to an array of { USERID, USERNAME, DISPLAYNAME,
+// PROFILEPICTUREURL }.
+export function searchMembers(query) {
+  return apiRequest(`/search?q=${encodeURIComponent(query)}&only=users`).then((data) => data.users || []);
+}
+
 export function listPosts({ movieId, userId } = {}) {
   const params = new URLSearchParams();
   if (movieId) params.set('movieId', movieId);

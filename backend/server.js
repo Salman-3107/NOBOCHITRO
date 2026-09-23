@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
 const { initPool, closePool } = require('./db');
+const { requireAuth } = require('./middleware/auth');
 
 const authRoutes = require('./routes/authRoutes');
 const movieRoutes = require('./routes/movieRoutes');
@@ -51,7 +52,18 @@ app.get('/', (req, res) => {
   res.send('NOBOCHITRO backend is running');
 });
 
+// /api/auth holds the only two endpoints that can be reached without a token
+// (register and login). Logout and /me inside it carry their own requireAuth.
 app.use('/api/auth', authRoutes);
+
+// AUTHENTICATION GATE -- everything mounted below this line requires a valid,
+// unrevoked JWT. Because it is one app.use() ahead of every other router, a
+// route added later cannot accidentally be public: it is protected by where
+// it is mounted, not by someone remembering to add requireAuth to it.
+// (The routers' own requireAuth / optionalAuth calls become no-ops for
+// requests that have already passed this gate -- see middleware/auth.js.)
+app.use('/api', requireAuth);
+
 app.use('/api', movieRoutes);
 app.use('/api', reviewRoutes);
 app.use('/api', bucketListRoutes);

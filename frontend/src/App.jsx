@@ -97,6 +97,16 @@ function AppShell({ user, onLogout }) {
       navigate(`/taste-match/${targetId}`);
       return;
     }
+    // Notification deep links: open the Community feed scrolled to one post,
+    // optionally with its comments already expanded.
+    if (nextPage === 'post' && targetId) {
+      navigate(`/community?post=${targetId}`);
+      return;
+    }
+    if (nextPage === 'postComments' && targetId) {
+      navigate(`/community?post=${targetId}&view=comments`);
+      return;
+    }
     navigate(PAGE_PATHS[nextPage] || '/');
   }
 
