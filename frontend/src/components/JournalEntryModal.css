@@ -1,0 +1,202 @@
+/* Journal entry viewer (opens from a profile's Journal tab).
+   Uses the app's amber/charcoal palette from index.css. */
+
+.journal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.journal-modal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(680px, 90vh);
+  overflow-y: auto;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+}
+
+.journal-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.journal-modal__close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.journal-modal__top {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  padding-right: 28px;
+}
+
+.journal-modal__poster {
+  flex: 0 0 84px;
+  width: 84px;
+  height: 118px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.journal-modal__poster--empty {
+  display: grid;
+  place-content: center;
+  font-size: 1.6rem;
+}
+
+.journal-modal__heading {
+  min-width: 0;
+}
+
+.journal-modal__date {
+  margin: 2px 0 0;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.journal-modal h2 {
+  margin: 4px 0 10px;
+  font: 500 1.7rem/1.15 var(--font-display);
+}
+
+.journal-modal__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.journal-modal__chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.journal-modal__chip--mood {
+  border-color: rgba(216, 161, 93, 0.35);
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+}
+
+.journal-modal__text {
+  margin: 24px 0 0;
+  padding-left: 16px;
+  border-left: 2px solid var(--accent);
+  color: var(--text);
+  font: italic 1.02rem/1.7 var(--font-display);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.journal-modal__blank {
+  margin: 24px 0 0;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.journal-modal__scene {
+  margin-top: 20px;
+}
+
+.journal-modal__scene h3 {
+  margin: 0 0 4px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.journal-modal__scene p {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.journal-modal__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px;
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.journal-modal__facts dt {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.journal-modal__facts dd {
+  margin: 3px 0 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.journal-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.journal-modal__movie-button {
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.journal-modal__movie-button:hover {
+  border-color: rgba(216, 161, 93, 0.5);
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+}
+
+.journal-modal__close:focus-visible,
+.journal-modal__movie-button:focus-visible {
+  outline: 2px solid rgba(216, 161, 93, 0.7);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .journal-modal {
+    padding: 22px 18px;
+  }
+
+  .journal-modal__poster {
+    flex-basis: 68px;
+    width: 68px;
+    height: 96px;
+  }
+}

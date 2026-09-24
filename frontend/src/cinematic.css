@@ -1,0 +1,264 @@
+/* ================================================================
+   NOBOCHITRO — Cinematic Human UI Layer
+   A visual layer only: existing React/API/routing behavior remains intact.
+   ================================================================ */
+
+:root {
+  --bg: #0d0d0f;
+  --panel: #141416;
+  --surface: rgba(255,255,255,.045);
+  --surface-hover: rgba(255,255,255,.065);
+  --surface-solid: #171719;
+  --border: rgba(255,255,255,.08);
+  --border-soft: rgba(255,255,255,.055);
+  --text: #f3f0ea;
+  --text-muted: #aaa6a0;
+  --text-faint: #77736e;
+  --accent: #d8a15d;
+  --accent-bright: #e8b77b;
+  --accent-deep: #3a2a1b;
+  --gold: #d8a15d;
+  --gold-soft: rgba(216,161,93,.14);
+  --error: #c97878;
+  --success: #76b996;
+  --info: #8baac5;
+  --font-display: 'DM Serif Display', 'Fraunces', Georgia, serif;
+  --font-body: Inter, Manrope, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --shadow-card: 0 8px 24px rgba(0,0,0,.15);
+  --shadow-lift: 0 16px 40px rgba(0,0,0,.24);
+  --transition: 280ms cubic-bezier(.2,.7,.2,1);
+}
+
+html { background: var(--bg); }
+body {
+  background:
+    radial-gradient(circle at 20% 10%, rgba(216,161,93,.035), transparent 35%),
+    radial-gradient(circle at 85% 70%, rgba(184,92,92,.018), transparent 30%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+}
+
+button, input, select, textarea { font: inherit; }
+button { transition: color var(--transition), background var(--transition), border-color var(--transition), transform var(--transition), box-shadow var(--transition), opacity var(--transition); }
+
+/* A small amount of editorial texture without image filters everywhere. */
+.app-header,
+.notification-menu,
+.member-results,
+.app-header__menu {
+  background: rgba(20,20,22,.78) !important;
+  border-color: var(--border) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 14px 40px rgba(0,0,0,.18) !important;
+}
+
+/* Header: floating film-player feel, not corporate dashboard. */
+.app-header {
+  margin: 12px auto 0;
+  width: min(1320px, calc(100% - 28px));
+  padding: 11px 15px 11px 18px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px;
+  top: 12px;
+}
+.app-header__nav { gap: 5px !important; }
+.app-header__nav-link {
+  padding: 7px 9px !important;
+  border-radius: 8px;
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+}
+.app-header__nav-link:hover,
+.app-header__nav-link--active {
+  color: var(--text) !important;
+  background: rgba(216,161,93,.08);
+}
+.app-header__nav-link--active::after {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 1px;
+  margin: 3px auto -3px;
+  background: var(--accent);
+  opacity: .75;
+}
+.app-header__wordmark { color: var(--text) !important; }
+.app-header__wordmark em { color: var(--accent) !important; }
+.app-header__search {
+  background: rgba(255,255,255,.035) !important;
+  border-color: var(--border) !important;
+  border-radius: 10px !important;
+  padding: 9px 12px !important;
+}
+.app-header__search:focus-within { border-color: rgba(216,161,93,.35) !important; box-shadow: 0 0 0 3px rgba(216,161,93,.06); }
+.app-header__logout { border-color: var(--border) !important; border-radius: 10px !important; color: var(--text-muted) !important; }
+.app-header__logout:hover { border-color: rgba(216,161,93,.35) !important; color: var(--accent-bright) !important; }
+
+/* Shared page rhythm. */
+.browse-page,
+.profile-page,
+.community-page,
+.journal-page,
+.passport-page,
+.challenges-page,
+.stats-page,
+.watchlist-page,
+.taste-match-page,
+.movie-details-page { background: transparent !important; }
+
+.browse-page__content,
+.page-content,
+.profile-page__content {
+  max-width: 1320px;
+  margin-inline: auto;
+}
+
+/* Human/editorial section headings. */
+.browse-page__intro h1,
+.home-row__heading h2,
+.filtered-movies__heading h2,
+.section-title,
+.page-title {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  letter-spacing: -.01em;
+}
+.browse-page__eyebrow,
+.home-row__eyebrow,
+.browse-page__eyebrow { color: var(--accent) !important; }
+
+/* Hero: image first, UI second. */
+.movie-hero {
+  border-color: var(--border) !important;
+  background: #101012 !important;
+  box-shadow: var(--shadow-card);
+}
+.movie-hero::after {
+  background: linear-gradient(90deg, rgba(13,13,15,.98) 0%, rgba(13,13,15,.78) 45%, rgba(13,13,15,.30) 100%), linear-gradient(0deg, rgba(13,13,15,.42), transparent 58%) !important;
+}
+.movie-hero__art { opacity: .7 !important; }
+.movie-hero__art img { filter: saturate(.78) contrast(1.02) !important; }
+.movie-hero h1 { font-family: var(--font-display) !important; font-weight: 400 !important; }
+.movie-hero__controls button { background: rgba(13,13,15,.42) !important; border-color: var(--border) !important; }
+.movie-hero__controls button:hover { background: rgba(216,161,93,.16) !important; border-color: rgba(216,161,93,.4) !important; }
+.movie-hero__dot--active { background: var(--accent) !important; }
+
+/* Buttons and controls. */
+.button,
+button.button {
+  border-radius: 10px !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+}
+.button--primary { background: var(--accent) !important; color: #171310 !important; }
+.button--primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.button--ghost { background: rgba(255,255,255,.035) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.button--ghost:hover { background: rgba(255,255,255,.065) !important; }
+
+input, select, textarea {
+  background: rgba(255,255,255,.035) !important;
+  border-color: var(--border) !important;
+  border-radius: 10px !important;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: rgba(216,161,93,.45) !important;
+  box-shadow: 0 0 0 3px rgba(216,161,93,.06) !important;
+}
+
+/* Filters: translucent sheet rather than dashboard panel. */
+.browse-page__filters--discover {
+  background: rgba(255,255,255,.025) !important;
+  border-color: var(--border-soft) !important;
+  box-shadow: none !important;
+}
+.filter-chip { border-radius: 10px !important; background: transparent !important; border-color: var(--border) !important; }
+.filter-chip--active { background: rgba(216,161,93,.12) !important; border-color: rgba(216,161,93,.32) !important; color: var(--accent-bright) !important; }
+.sort-select { background: transparent !important; border-color: var(--border) !important; }
+.sort-select__option--active { background: rgba(216,161,93,.08) !important; color: var(--accent-bright) !important; }
+
+/* Movie cards: no neon, no giant badges, subtle lift. */
+.movie-card { gap: 9px !important; transition: transform 350ms cubic-bezier(.2,.8,.2,1); }
+.movie-card:hover { transform: translateY(-3px) !important; }
+.movie-card__poster {
+  border-radius: 10px !important;
+  border-color: rgba(255,255,255,.07) !important;
+  box-shadow: none !important;
+}
+.movie-card__poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0,0,0,.32), transparent 46%);
+}
+.movie-card__poster img { transition: transform 700ms cubic-bezier(.2,.7,.2,1), filter 500ms ease !important; }
+.movie-card:hover .movie-card__poster { border-color: rgba(216,161,93,.22) !important; box-shadow: 0 13px 28px rgba(0,0,0,.22) !important; }
+.movie-card:hover .movie-card__poster img { transform: scale(1.035) !important; filter: none !important; }
+.movie-card__rating {
+  background: rgba(13,13,15,.72) !important;
+  border-color: rgba(255,255,255,.09) !important;
+  color: var(--accent) !important;
+  border-radius: 7px !important;
+  backdrop-filter: blur(8px);
+}
+.movie-card:hover .movie-card__title { color: var(--accent-bright) !important; }
+.movie-card__title { font-weight: 500 !important; }
+.movie-card__meta { color: var(--text-muted) !important; }
+.movie-card__quick-action { background: rgba(13,13,15,.72) !important; border-color: rgba(255,255,255,.13) !important; backdrop-filter: blur(10px); }
+.movie-card:hover .movie-card__quick-action:hover { background: rgba(216,161,93,.15) !important; }
+.movie-card__quick-action span { color: var(--accent) !important; }
+
+/* Generic cards used throughout the app. */
+.stat-card,
+.empty-state,
+.taste-match-card,
+.challenge-card,
+.journal-card,
+.community-post,
+.profile-section,
+.passport-card,
+.stats-card {
+  box-shadow: none !important;
+}
+
+/* Keep existing components functional while softening the visual language. */
+[class*="card"], [class*="panel"] {
+  --local-card-shadow: none;
+}
+
+/* Scrollbars. */
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+*::-webkit-scrollbar { width: 7px; height: 7px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.20); }
+
+/* Gentle selection color. */
+::selection { background: rgba(216,161,93,.24); color: var(--text); }
+
+/* Respect accessibility and keep animation intentional. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+@media (max-width: 1024px) {
+  .app-header { width: calc(100% - 20px); margin-top: 10px; top: 10px; }
+}
+
+@media (max-width: 640px) {
+  .app-header { width: calc(100% - 16px); margin-top: 8px; top: 8px; border-radius: 12px; }
+  .browse-page__content { padding-left: 16px !important; padding-right: 16px !important; }
+  .movie-hero { border-radius: 14px !important; }
+  .movie-hero__content { padding: 28px 22px !important; }
+  .movie-hero__art { left: 18% !important; opacity: .42 !important; }
+  .movie-card__title { font-size: 14px !important; }
+}

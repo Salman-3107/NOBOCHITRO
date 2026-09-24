@@ -1,0 +1,118 @@
+/* ==========================================================
+   NOBOCHITRO -- motion in one place.
+   Every slide / fade animation added to the app lives here, so it is
+   easy to tune (change a duration) or remove (delete a block).
+   Users who ask their device for less motion get almost none of
+   this -- index.css already shortens all animations for them.
+   ========================================================== */
+
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- Keyframes ---------- */
+
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Popups: rise from below the screen centre. */
+@keyframes ui-sheet-in {
+  from { opacity: 0; transform: translateY(28px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Small menus and expanding panels: drop down from their button. */
+@keyframes ui-drop-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* A new page's content rises into place. */
+@keyframes ui-page-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Profile tabs: content slides in from the side the tab lives on. */
+@keyframes ui-slide-from-right {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ui-slide-from-left {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- 1. Page changes ----------
+   Runs once when a page opens. "backwards" (not "both") so nothing is
+   left applied afterwards -- a leftover transform would break the
+   position: fixed popups that live inside these containers. */
+
+.profile-wrap,
+.journey-wrap,
+.challenges-wrap,
+.passport-wrap,
+.stats-wrap,
+.taste-wrap,
+.browse-page__content,
+.watchlist-page__content,
+.community-layout {
+  animation: ui-page-rise 380ms var(--ease-out) backwards;
+}
+
+/* ---------- 2. Popups (backdrop fades, card slides up) ---------- */
+
+.profile-modal-backdrop,
+.journal-modal-backdrop,
+.journey-modal {
+  animation: ui-fade-in 200ms ease backwards;
+}
+
+.profile-modal,
+.journal-modal,
+.journey-modal form {
+  animation: ui-sheet-in 340ms var(--ease-out) backwards;
+}
+
+/* ---------- 3. Menus and panels that open from a button ---------- */
+
+.notification-menu,
+.app-header__menu {
+  transform-origin: top right;
+  animation: ui-drop-in 220ms var(--ease-out) backwards;
+}
+
+.member-results,
+.movie-suggestions,
+.comment-section {
+  animation: ui-drop-in 220ms var(--ease-out) backwards;
+}
+
+/* ---------- 4. Profile tabs ---------- */
+
+.profile-content--forward {
+  animation: ui-slide-from-right 340ms var(--ease-out) backwards;
+}
+
+.profile-content--backward {
+  animation: ui-slide-from-left 340ms var(--ease-out) backwards;
+}
+
+/* ---------- 5. Movie page ----------
+   "More like this" card slides in from the side you moved toward, and
+   the frosted info panel rises into place once when the page opens. */
+
+.up-next__stage--forward {
+  animation: ui-slide-from-right 340ms var(--ease-out) backwards;
+}
+
+.up-next__stage--backward {
+  animation: ui-slide-from-left 340ms var(--ease-out) backwards;
+}
+
+.cinema-hero__info {
+  animation: ui-page-rise 520ms var(--ease-out) 120ms backwards;
+}

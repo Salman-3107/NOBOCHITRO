@@ -9,11 +9,12 @@
   gap: 10px;
   font-family: inherit;
   color: inherit;
-  transition: transform 0.24s ease;
+  transition: transform var(--transition);
 }
 
 .movie-card:hover {
-  transform: translateY(-7px);
+  /* A small lift, not a jump -- the poster underneath is doing the work. */
+  transform: translateY(-3px);
 }
 
 .movie-card:hover .movie-card__title {
@@ -39,13 +40,14 @@
 }
 
 .movie-card:hover .movie-card__poster {
-  border-color: rgba(255, 101, 117, 0.7);
-  box-shadow: 0 13px 28px rgba(0, 0, 0, 0.48), 0 0 23px rgba(189, 38, 56, 0.24);
+  border-color: rgba(216, 161, 93, 0.4);
+  box-shadow: var(--shadow-card);
 }
 
 .movie-card:hover .movie-card__poster img {
-  transform: scale(1.07);
-  filter: brightness(0.65) saturate(0.8);
+  /* Subtle -- this should read as the image settling into focus, not zooming. */
+  transform: scale(1.035);
+  filter: brightness(0.92);
 }
 
 .movie-card__rating {
@@ -57,12 +59,12 @@
   gap: 4px;
   background: rgba(10, 12, 16, 0.85);
   backdrop-filter: blur(4px);
-  color: var(--accent-bright);
+  color: var(--gold);
   font-size: 12px;
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 101, 117, 0.35);
+  border: 1px solid var(--gold-soft);
 }
 
 .movie-card__rating--empty {
@@ -99,7 +101,7 @@
 
 .movie-card__quick-action span { color: var(--accent-bright); font-size: 16px; line-height: 10px; }
 .movie-card:hover .movie-card__quick-action { opacity: 1; transform: translateY(0); }
-.movie-card:hover .movie-card__quick-action:hover { background: rgba(189, 38, 56, 0.78); }
+.movie-card:hover .movie-card__quick-action:hover { background: rgba(216, 161, 93, 0.55); }
 
 .movie-card__title {
   font-family: var(--font-display);
@@ -133,7 +135,7 @@
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(ellipse 120% 80% at 50% 0%, rgba(122, 46, 46, 0.4), transparent 60%),
+    radial-gradient(ellipse 120% 80% at 50% 0%, rgba(216, 161, 93, 0.16), transparent 60%),
     linear-gradient(180deg, #14171d, #0c0e12);
   overflow: hidden;
 }
@@ -163,8 +165,8 @@
     to bottom,
     transparent 0,
     transparent 8px,
-    rgba(255, 101, 117, 0.12) 8px,
-    rgba(255, 101, 117, 0.12) 16px
+    rgba(216, 161, 93, 0.1) 8px,
+    rgba(216, 161, 93, 0.1) 16px
   );
 }
 

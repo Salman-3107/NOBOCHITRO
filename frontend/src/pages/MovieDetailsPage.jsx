@@ -86,9 +86,103 @@ function TrailerModal({ movieTitle, trailerUrl, onClose }) {
   );
 }
 
-function Poster({ movie }) {
-  if (movie.POSTERURL) return <img className="movie-details__poster" src={movie.POSTERURL} alt={`${movie.TITLE} poster`} />;
-  return <div className="movie-details__poster movie-details__poster--placeholder"><span>{movie.TITLE?.charAt(0)}</span></div>;
+// Pulls the names the hero's info panel needs out of the credits list.
+function getCreditSummary(movie) {
+  const allCredits = movie.credits || [];
+  const actors = movie.cast || allCredits.filter((credit) => credit.ROLETYPE === 'Actor');
+  const crewMembers = movie.crew || allCredits.filter((credit) => credit.ROLETYPE !== 'Actor');
+  return {
+    directors: crewMembers.filter((person) => person.ROLETYPE === 'Director').map((person) => person.FULLNAME),
+    writers: crewMembers.filter((person) => person.ROLETYPE === 'Writer').map((person) => person.FULLNAME),
+    stars: actors.slice(0, 6).map((person) => person.FULLNAME),
+  };
+}
+
+// One landscape card for a related movie: poster cropped wide, title on top,
+// year and rating at the bottom. Clicking opens that movie.
+function UpNextCard({ movie, onOpen, isSecond }) {
+  const hasRating = movie.AVGRATING !== null && movie.AVGRATING !== undefined;
+  return (
+    <button
+      type="button"
+      className={isSecond ? 'up-next-card up-next-card--second' : 'up-next-card'}
+      onClick={onOpen}
+      aria-label={`Open ${movie.TITLE}`}
+    >
+      {movie.POSTERURL && <img src={movie.POSTERURL} alt="" />}
+      <span className="up-next-card__shade" aria-hidden="true" />
+      <strong className="up-next-card__title">{movie.TITLE}</strong>
+      <span className="up-next-card__meta">{movie.RELEASEYEAR}{hasRating ? ` · ★ ${movie.AVGRATING}` : ''}</span>
+      <span className="up-next-card__go" aria-hidden="true">›</span>
+    </button>
+  );
+}
+
+// Right-hand column of the hero: a small list, a pager (arrows + dots) and a
+// two full cards. The cards slide left or right when you move, the same way
+// the profile tabs do.
+function UpNext({ movies, onSelect }) {
+  const suggestions = movies.slice(0, 6);
+  const total = suggestions.length;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(null);
+
+  // A different movie page means a different list: start from the first card.
+  useEffect(() => { setActiveIndex(0); setSlideDirection(null); }, [movies]);
+
+  function showPrevious() {
+    setSlideDirection('backward');
+    setActiveIndex((index) => (index - 1 + total) % total);
+  }
+  function showNext() {
+    setSlideDirection('forward');
+    setActiveIndex((index) => (index + 1) % total);
+  }
+  function showIndex(newIndex) {
+    if (newIndex === activeIndex) return;
+    setSlideDirection(newIndex > activeIndex ? 'forward' : 'backward');
+    setActiveIndex(newIndex);
+  }
+
+  const activeMovie = suggestions[activeIndex];
+  const nextMovie = suggestions[(activeIndex + 1) % total];
+  const listedIndexes = total > 1 ? [activeIndex, (activeIndex + 1) % total] : [activeIndex];
+
+  return (
+    <aside className="cinema-hero__next up-next" aria-label="More like this">
+      <ul className="up-next__list">
+        {listedIndexes.map((movieIndex) => {
+          const item = suggestions[movieIndex];
+          return (
+            <li key={item.MOVIEID}>
+              <button type="button" className={movieIndex === activeIndex ? 'up-next__item up-next__item--active' : 'up-next__item'} onClick={() => showIndex(movieIndex)}>
+                <i aria-hidden="true" />
+                <strong>{item.TITLE}</strong>
+                <span>{[item.RELEASEYEAR, item.RUNTIME ? `${item.RUNTIME} min` : null].filter(Boolean).join(' · ')}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {total > 1 && (
+        <div className="up-next__pager">
+          <button type="button" className="up-next__arrow" onClick={showPrevious} aria-label="Previous suggestion">‹</button>
+          <div className="up-next__dots">
+            {suggestions.map((item, index) => (
+              <button type="button" key={item.MOVIEID} className={index === activeIndex ? 'up-next__dot up-next__dot--active' : 'up-next__dot'} onClick={() => showIndex(index)} aria-label={`Suggestion ${index + 1} of ${total}`} />
+            ))}
+          </div>
+          <button type="button" className="up-next__arrow" onClick={showNext} aria-label="Next suggestion">›</button>
+        </div>
+      )}
+
+      <div className={slideDirection ? `up-next__stage up-next__stage--${slideDirection}` : 'up-next__stage'} key={activeMovie.MOVIEID}>
+        <UpNextCard movie={activeMovie} onOpen={() => onSelect(activeMovie.MOVIEID)} />
+        {total > 1 && <UpNextCard movie={nextMovie} onOpen={() => onSelect(nextMovie.MOVIEID)} isSecond />}
+      </div>
+    </aside>
+  );
 }
 
 function RatingControl({ movieId, onSaved }) {
@@ -225,6 +319,8 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
     }
   }
 
+  const creditSummary = movie ? getCreditSummary(movie) : { directors: [], writers: [], stars: [] };
+
   return (
     <div className="movie-details-page">
       <Header searchValue={search} onSearchChange={setSearch} onLogout={onLogout} onNavigate={onNavigate} />
@@ -232,32 +328,48 @@ export default function MovieDetailsPage({ movieId, onBack, onLogout, onNavigate
       {status === 'error' && <main className="details-status">We could not load this movie. <button type="button" onClick={onBack}>Return to home</button></main>}
       {status === 'ready' && movie && (
         <main>
-          <section className="movie-details__hero">
-            <div className="movie-details__backdrop" aria-hidden="true">{movie.POSTERURL && <img key={movie.MOVIEID} src={movie.POSTERURL} alt="" />}</div>
-            <div className="movie-details__hero-content">
+          <section className={relatedMovies.length ? 'cinema-hero' : 'cinema-hero cinema-hero--no-next'}>
+            <div className="cinema-hero__backdrop" aria-hidden="true">{movie.POSTERURL && <img key={movie.MOVIEID} src={movie.POSTERURL} alt="" />}</div>
+
+            <div className="cinema-hero__main">
               <button type="button" className="back-link" onClick={onBack}>← Back to discovery</button>
-              <div className="movie-details__summary">
-                <Poster movie={movie} />
-                <div className="movie-details__headline">
-                  <div className="movie-details__eyebrow-row">
-                    {movie.avgRating && <span className="match-chip">{Math.round(movie.avgRating * 10)}% match</span>}
-                    <p className="movie-details__eyebrow">{movie.RELEASEYEAR} · {movie.LANGUAGE || 'Feature film'}</p>
-                  </div>
-                  <h1>{movie.TITLE}</h1>
-                  <p className="movie-details__facts">{movie.RELEASEYEAR}{movie.RUNTIME ? ` · ${movie.RUNTIME} minutes` : ''}{movie.COUNTRY ? ` · ${movie.COUNTRY}` : ''}</p>
-                  <div className="genre-tags">{movie.genres.map((genre) => <span key={genre.GENREID}>{genre.GENRENAME}</span>)}</div>
-                  <div className="movie-details__actions">
-                    <button
-                      type="button"
-                      className="details-button details-button--play"
-                      disabled={!youTubeKey(movie.TRAILERURL)}
-                      title={youTubeKey(movie.TRAILERURL) ? 'Play trailer' : 'No trailer on file yet'}
-                      onClick={() => setIsTrailerOpen(true)}
-                    >▶ Trailer</button>
-                    <button type="button" className="details-button details-button--list" onClick={handleAddToWatchlist}>+ My List</button>
-                  </div>
-                  {watchlistMessage && <p className="movie-details__watchlist-message">{watchlistMessage}</p>}
-                </div>
+              <h1>{movie.TITLE}</h1>
+              <div className="cinema-hero__facts">
+                {movie.avgRating && <span className="cinema-hero__rating">★ {movie.avgRating}</span>}
+                {[movie.RELEASEYEAR, movie.RUNTIME ? `${movie.RUNTIME} min` : null, movie.COUNTRY, movie.LANGUAGE].filter(Boolean).map((fact) => <span key={fact}>{fact}</span>)}
+              </div>
+              <div className="cinema-hero__actions">
+                <button
+                  type="button"
+                  className="hero-button hero-button--primary"
+                  disabled={!youTubeKey(movie.TRAILERURL)}
+                  title={youTubeKey(movie.TRAILERURL) ? 'Play trailer' : 'No trailer on file yet'}
+                  onClick={() => setIsTrailerOpen(true)}
+                >▶ Watch trailer</button>
+                <button type="button" className="hero-button hero-button--light" onClick={handleAddToWatchlist}><b>+</b> Add to list</button>
+              </div>
+              {watchlistMessage && <p className="movie-details__watchlist-message">{watchlistMessage}</p>}
+            </div>
+
+            {relatedMovies.length > 0 && <UpNext movies={relatedMovies} onSelect={goToMovie} />}
+
+            <div className="cinema-hero__info">
+              <div>
+                <h2>Category</h2>
+                <p>{movie.genres.length ? movie.genres.map((genre) => genre.GENRENAME).join(', ') : 'Not listed yet'}</p>
+              </div>
+              <div>
+                <h2>Storyline</h2>
+                <p className="cinema-hero__storyline">{movie.SYNOPSIS || 'No synopsis has been added for this movie yet.'}</p>
+              </div>
+              <div>
+                <h2>Director / Writer</h2>
+                <p>Director: {creditSummary.directors.join(', ') || 'Not listed'}</p>
+                <p>Writers: {creditSummary.writers.join(', ') || 'Not listed'}</p>
+              </div>
+              <div>
+                <h2>Stars</h2>
+                <p>{creditSummary.stars.join(', ') || 'Not listed yet'}</p>
               </div>
             </div>
           </section>
