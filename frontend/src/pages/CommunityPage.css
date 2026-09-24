@@ -20,6 +20,26 @@
     margin-bottom: 27px
 }
 
+.community-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: none;
+    color: var(--accent-bright);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    cursor: pointer
+}
+
+.community-back-link:hover {
+    background: rgba(189, 38, 56, .12)
+}
+
 .community-title p,
 .community-sidebar>p {
     margin: 0 0 10px;

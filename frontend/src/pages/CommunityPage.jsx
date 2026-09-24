@@ -103,12 +103,28 @@ function PostCard({ post, user, onChanged, onSelectMovie, onSelectProfile, focus
 }
 
 export default function CommunityPage({ user, onLogout, onNavigate, onSelectMovie, onSelectProfile }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const focusPostId = Number(searchParams.get('post')) || null;
   const focusView = searchParams.get('view') === 'comments' ? 'comments' : 'post';
   const [posts, setPosts] = useState([]); const [status, setStatus] = useState('loading'); const [search, setSearch] = useState(''); const [myProfile, setMyProfile] = useState(null);
+  // Arriving from a post-related notification (?post=<id>) is a single-post
+  // view, not the full feed with that card scrolled-to: `singlePost` holds
+  // just that post (fetched via GET /api/posts/:id, which already includes
+  // its comments) and the full-feed fetch below is skipped entirely.
+  const [singlePost, setSinglePost] = useState(null);
+  const [singleStatus, setSingleStatus] = useState('loading');
   async function loadPosts() { try { setStatus('loading'); setPosts(await listPosts()); setStatus('ready'); } catch { setStatus('error'); } }
-  useEffect(() => { loadPosts(); getUserProfile(user.userId).then(setMyProfile).catch(() => {}); }, []);
-  const focusMissing = Boolean(focusPostId) && status === 'ready' && !posts.some((post) => Number(post.POSTID) === focusPostId);
-  return <div className="community-page"><Header searchValue={search} onSearchChange={setSearch} onLogout={onLogout} activePage="community" onNavigate={onNavigate} /><main className="community-layout"><section className="community-feed"><header className="community-title"><p>NOBOCHITRO COMMUNITY</p><h1>Movie conversations, uncut.</h1><span>Share the scenes that stayed with you.</span></header><MovieTagComposer user={user} profilePictureUrl={myProfile?.PROFILEPICTUREURL || user.profilePictureUrl} onCreated={loadPosts} />{status === 'loading' && <p className="community-status">Loading conversations…</p>}{status === 'error' && <p className="community-status">Could not load posts. <button type="button" onClick={loadPosts}>Try again</button></p>}{focusMissing && <p className="community-status">That post is no longer available.</p>}{status === 'ready' && !posts.length && <p className="community-status">No conversations yet. Start the first one.</p>}{posts.map((post) => <PostCard key={post.POSTID} post={post} user={user} onChanged={loadPosts} onSelectMovie={onSelectMovie} onSelectProfile={onSelectProfile} focus={Number(post.POSTID) === focusPostId ? focusView : null} />)}</section><aside className="community-sidebar"><p>THE REEL</p><h2>Talk movies.<br />Find your people.</h2><span>Tag a movie with <strong>#</strong> and bring the conversation to life.</span></aside></main></div>;
+  async function loadSinglePost(id) { try { setSingleStatus('loading'); setSinglePost(await getPost(id)); setSingleStatus('ready'); } catch { setSingleStatus('error'); } }
+  useEffect(() => {
+    getUserProfile(user.userId).then(setMyProfile).catch(() => {});
+    if (focusPostId) loadSinglePost(focusPostId); else loadPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusPostId]);
+  function backToFeed() { setSearchParams({}); }
+
+  if (focusPostId) {
+    return <div className="community-page"><Header searchValue={search} onSearchChange={setSearch} onLogout={onLogout} activePage="community" onNavigate={onNavigate} /><main className="community-layout"><section className="community-feed"><header className="community-title"><button type="button" className="community-back-link" onClick={backToFeed}>← Back to Community</button><h1>From your notifications</h1></header>{singleStatus === 'loading' && <p className="community-status">Loading post…</p>}{singleStatus === 'error' && <p className="community-status">That post is no longer available. <button type="button" onClick={backToFeed}>Back to Community</button></p>}{singleStatus === 'ready' && singlePost && <PostCard post={singlePost} user={user} onChanged={() => loadSinglePost(focusPostId)} onSelectMovie={onSelectMovie} onSelectProfile={onSelectProfile} focus={focusView} />}</section></main></div>;
+  }
+
+  return <div className="community-page"><Header searchValue={search} onSearchChange={setSearch} onLogout={onLogout} activePage="community" onNavigate={onNavigate} /><main className="community-layout"><section className="community-feed"><header className="community-title"><p>NOBOCHITRO COMMUNITY</p><h1>Movie conversations, uncut.</h1><span>Share the scenes that stayed with you.</span></header><MovieTagComposer user={user} profilePictureUrl={myProfile?.PROFILEPICTUREURL || user.profilePictureUrl} onCreated={loadPosts} />{status === 'loading' && <p className="community-status">Loading conversations…</p>}{status === 'error' && <p className="community-status">Could not load posts. <button type="button" onClick={loadPosts}>Try again</button></p>}{status === 'ready' && !posts.length && <p className="community-status">No conversations yet. Start the first one.</p>}{posts.map((post) => <PostCard key={post.POSTID} post={post} user={user} onChanged={loadPosts} onSelectMovie={onSelectMovie} onSelectProfile={onSelectProfile} />)}</section><aside className="community-sidebar"><p>THE REEL</p><h2>Talk movies.<br />Find your people.</h2><span>Tag a movie with <strong>#</strong> and bring the conversation to life.</span></aside></main></div>;
 }
