@@ -612,3 +612,11 @@
     display: none;
   }
 }
+
+/* Reviewer avatar and name open that person's profile. */
+.review-card__profile-button { flex: 0 0 auto; align-self: flex-start; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.review-card__name-button { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.review-card__profile-button:hover .review-card__avatar,
+.review-card__profile-button:focus-visible .review-card__avatar { box-shadow: 0 0 0 2px var(--accent-bright); }
+.review-card__name-button:hover strong,
+.review-card__name-button:focus-visible strong { color: var(--accent-bright); text-decoration: underline; }

@@ -431,3 +431,128 @@
     box-shadow: 0 0 0 2px transparent, 0 0 0 rgba(255, 101, 117, 0);
   }
 }
+
+/* Comment avatar and name open that person's profile. */
+.comment>.comment__profile-button {
+    flex: 0 0 auto;
+    padding: 0;
+    border-radius: 50%
+}
+
+.comment__name-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer
+}
+
+.comment__name-button:hover strong,
+.comment__name-button:focus-visible strong {
+    color: var(--accent-bright);
+    text-decoration: underline
+}
+
+/* The "3 likes" link next to the heart. */
+.post-action--count {
+    font-size: 13px
+}
+
+.post-action--count:hover {
+    text-decoration: underline
+}
+
+/* "Liked by" popup. */
+.likes-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px)
+}
+
+.likes-modal {
+    width: min(420px, 100%);
+    max-height: min(560px, 90vh);
+    overflow: auto;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6)
+}
+
+.likes-modal header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px
+}
+
+.likes-modal h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500
+}
+
+.likes-modal header button {
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 28px;
+    cursor: pointer
+}
+
+.likes-modal header button:hover {
+    color: var(--text)
+}
+
+.likes-modal__list {
+    display: grid;
+    gap: 4px
+}
+
+.likes-modal__list button {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s
+}
+
+.likes-modal__list button:hover {
+    background: var(--surface-hover)
+}
+
+.likes-modal__list .community-avatar {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px
+}
+
+.likes-modal__list div {
+    display: grid;
+    gap: 2px
+}
+
+.likes-modal__list small,
+.likes-modal__message {
+    color: var(--text-muted)
+}
+
+.likes-modal__message {
+    margin: 8px 0
+}

@@ -338,6 +338,32 @@ async function getFollowingFeed(req, res) {
   }
 }
 
+// GET /api/posts/:id/likes  (auth) -- who liked this post, newest first.
+// Returns the same person fields the rest of the app uses (UserID, Username,
+// DisplayName, ProfilePictureURL) so the "Liked by" list can open each profile.
+async function getPostLikes(req, res) {
+  const postId = Number(req.params.id);
+
+  let connection;
+  try {
+    connection = await getPool().getConnection();
+    const result = await connection.execute(
+      `SELECT u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL, pl.LikeDate
+       FROM PostLike pl
+       JOIN AppUser u ON u.UserID = pl.UserID
+       WHERE pl.PostID = :postId
+       ORDER BY pl.LikeDate DESC`,
+      { postId }
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get post likes error:', err);
+    res.status(500).json({ error: 'Failed to fetch likes' });
+  } finally {
+    if (connection) await connection.close();
+  }
+}
+
 module.exports = {
   createPost,
   listPosts,
@@ -345,6 +371,7 @@ module.exports = {
   deletePost,
   likePost,
   unlikePost,
+  getPostLikes,
   addComment,
   deleteComment,
   getFollowingFeed,

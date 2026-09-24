@@ -118,7 +118,7 @@ export default function TasteMatchPage({ user, otherUserId, onLogout, onNavigate
       <main className="taste-wrap">
         <header className="taste-hero">
           <p className="taste-hero__eyebrow">TASTE MATCH</p>
-          <h1>You &amp; {otherName}</h1>
+          <h1>You &amp; <button type="button" className="taste-hero__profile-link" onClick={() => onNavigate('profile', otherUserId)}>{otherName}</button></h1>
           <span>
             Computed from every film you have both rated — the closer your scores, the higher
             the match.

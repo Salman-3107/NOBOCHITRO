@@ -8,6 +8,7 @@ const {
   deletePost,
   likePost,
   unlikePost,
+  getPostLikes,
   addComment,
   deleteComment,
   getFollowingFeed,
@@ -21,6 +22,7 @@ router.delete('/posts/:id', requireAuth, deletePost);
 
 router.post('/posts/:id/like', requireAuth, likePost);
 router.delete('/posts/:id/like', requireAuth, unlikePost);
+router.get('/posts/:id/likes', requireAuth, getPostLikes);
 
 router.post('/posts/:id/comments', requireAuth, addComment);
 router.delete('/comments/:id', requireAuth, deleteComment);

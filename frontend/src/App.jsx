@@ -33,7 +33,7 @@ const PAGE_PATHS = {
 
 // Wraps MovieDetailsPage so it can pull :movieId straight from the URL
 // instead of from component state.
-function MovieDetailsRoute({ user, onLogout, onNavigate, onSelectMovie }) {
+function MovieDetailsRoute({ user, onLogout, onNavigate, onSelectMovie, onSelectProfile }) {
   const { movieId } = useParams();
   const navigate = useNavigate();
   return (
@@ -44,6 +44,7 @@ function MovieDetailsRoute({ user, onLogout, onNavigate, onSelectMovie }) {
       onBack={() => navigate(-1)}
       onNavigate={onNavigate}
       onSelectMovie={onSelectMovie}
+      onSelectProfile={onSelectProfile}
     />
   );
 }
@@ -107,6 +108,11 @@ function AppShell({ user, onLogout }) {
       navigate(`/community?post=${targetId}&view=comments`);
       return;
     }
+    // "X liked your post": open the post with its "Liked by" list already showing.
+    if (nextPage === 'postLikes' && targetId) {
+      navigate(`/community?post=${targetId}&view=likes`);
+      return;
+    }
     navigate(PAGE_PATHS[nextPage] || '/');
   }
 
@@ -117,7 +123,7 @@ function AppShell({ user, onLogout }) {
     <Routes>
       <Route
         path="/movie/:movieId"
-        element={<MovieDetailsRoute user={user} onLogout={onLogout} onNavigate={handleNavigate} onSelectMovie={handleSelectMovie} />}
+        element={<MovieDetailsRoute user={user} onLogout={onLogout} onNavigate={handleNavigate} onSelectMovie={handleSelectMovie} onSelectProfile={handleSelectProfile} />}
       />
       <Route
         path="/profile/:userId"

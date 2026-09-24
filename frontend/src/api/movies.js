@@ -92,6 +92,7 @@ export function createPost({ movieId, postText }) { return apiRequest('/posts', 
 export function deletePost(postId) { return apiRequest(`/posts/${postId}`, { method: 'DELETE' }); }
 export function likePost(postId) { return apiRequest(`/posts/${postId}/like`, { method: 'POST' }); }
 export function unlikePost(postId) { return apiRequest(`/posts/${postId}/like`, { method: 'DELETE' }); }
+export function getPostLikes(postId) { return apiRequest(`/posts/${postId}/likes`); }
 export function addPostComment(postId, commentText) { return apiRequest(`/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ commentText }) }); }
 export function deletePostComment(commentId) { return apiRequest(`/comments/${commentId}`, { method: 'DELETE' }); }
 export function getUserProfile(userId) { return apiRequest(`/users/${userId}/profile`); }
