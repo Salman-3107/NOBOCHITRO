@@ -171,7 +171,11 @@ export default function PassportPage({ user, onLogout, onNavigate, onSelectMovie
           <div className="passport-book__spine" aria-hidden="true" />
 
           <div className="passport-book__id">
-            <span className="passport-book__photo">{displayName.charAt(0).toUpperCase()}</span>
+            <span className="passport-book__photo">
+              {user.profilePictureUrl
+                ? <img src={user.profilePictureUrl} alt="" />
+                : displayName.charAt(0).toUpperCase()}
+            </span>
             <div className="passport-book__holder">
               <p>PASSENGER</p>
               <h2>{displayName}</h2>

@@ -44,8 +44,13 @@ async function createPost(req, res) {
 // Optional query param: ?movieId= to see posts about one movie.
 // Returns like count + comment count per post via subqueries, which is
 // far cheaper than joining and grouping across three tables at once.
+// Also returns IsLiked for the authenticated user (global requireAuth in
+// server.js guarantees req.user is set here), via an EXISTS subquery, so
+// the frontend never has to guess -- or issue one request per post -- to
+// know whether the viewer already liked something.
 async function listPosts(req, res) {
   const { movieId, userId } = req.query;
+  const currentUserId = req.user.userId;
 
   let connection;
   try {
@@ -57,15 +62,18 @@ async function listPosts(req, res) {
              m.MovieID, m.Title AS MovieTitle, m.PosterURL,
              (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
              (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount,
-             CASE WHEN EXISTS (
-               SELECT 1 FROM PostLike pl2
-               WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
-             ) THEN 1 ELSE 0 END AS IsLiked
+             CASE
+                 WHEN EXISTS (
+                     SELECT 1 FROM PostLike pl2
+                     WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
+                 )
+                 THEN 1 ELSE 0
+             END AS IsLiked
       FROM Post p
       JOIN AppUser u ON u.UserID = p.UserID
       JOIN Movie m ON m.MovieID = p.MovieID
     `;
-    const binds = { currentUserId: req.user.userId };
+    const binds = { currentUserId };
 
     const filters = [];
     if (movieId) {
@@ -91,8 +99,13 @@ async function listPosts(req, res) {
 }
 
 // GET /api/posts/:id  (auth) -- single post with its comments
+// Returns LikeCount, CommentCount and IsLiked alongside the post itself, the
+// same social-state fields listPosts() returns, so a post opened this way
+// (e.g. from a notification) never appears in a different state than it
+// would have in the feed.
 async function getPost(req, res) {
   const postId = Number(req.params.id);
+  const currentUserId = req.user.userId;
 
   let connection;
   try {
@@ -104,15 +117,18 @@ async function getPost(req, res) {
               m.MovieID, m.Title AS MovieTitle, m.PosterURL,
               (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
               (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount,
-              CASE WHEN EXISTS (
-                SELECT 1 FROM PostLike pl2
-                WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
-              ) THEN 1 ELSE 0 END AS IsLiked
+              CASE
+                  WHEN EXISTS (
+                      SELECT 1 FROM PostLike pl2
+                      WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
+                  )
+                  THEN 1 ELSE 0
+              END AS IsLiked
        FROM Post p
        JOIN AppUser u ON u.UserID = p.UserID
        JOIN Movie m ON m.MovieID = p.MovieID
        WHERE p.PostID = :postId`,
-      { postId, currentUserId: req.user.userId }
+      { postId, currentUserId }
     );
 
     if (postResult.rows.length === 0) {
@@ -328,11 +344,7 @@ async function getFollowingFeed(req, res) {
               u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL,
               m.MovieID, m.Title AS MovieTitle, m.PosterURL,
               (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
-              (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount,
-              CASE WHEN EXISTS (
-                SELECT 1 FROM PostLike pl2
-                WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
-              ) THEN 1 ELSE 0 END AS IsLiked
+              (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount
        FROM Post p
        JOIN AppUser u ON u.UserID = p.UserID
        JOIN Movie m ON m.MovieID = p.MovieID
@@ -340,7 +352,7 @@ async function getFollowingFeed(req, res) {
          SELECT FollowedID FROM UserFollow WHERE FollowerID = :userId
        )
        ORDER BY p.PostDate DESC`,
-      { userId, currentUserId: req.user.userId }
+      { userId }
     );
     res.json(result.rows);
   } catch (err) {
