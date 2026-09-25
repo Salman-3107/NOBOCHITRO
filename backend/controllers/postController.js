@@ -1,6 +1,30 @@
 const oracledb = require('oracledb');
 const { getPool } = require('../db');
 
+// Merges two already newest-first lists into one feed where roughly `ratio`
+// of every stretch comes from `primary` and the rest from `secondary` --
+// e.g. ratio 0.8 reads out as "about 4 taste-matched posts, then 1 other,
+// repeat". It never stalls waiting on one side: once a side runs out, the
+// other simply fills the rest, so the feed is never shorter than it could be
+// just to protect the ratio.
+function interleaveByRatio(primary, secondary, ratio) {
+  const merged = [];
+  let p = 0;
+  let s = 0;
+  while (p < primary.length || s < secondary.length) {
+    const primaryShareSoFar = merged.length === 0 ? 0 : p / merged.length;
+    const takePrimary = p < primary.length && (primaryShareSoFar < ratio || s >= secondary.length);
+    if (takePrimary) {
+      merged.push(primary[p]);
+      p += 1;
+    } else {
+      merged.push(secondary[s]);
+      s += 1;
+    }
+  }
+  return merged;
+}
+
 // POST /api/posts  (auth)
 // body: { movieId, postText }
 // Per the schema, every post is about a specific movie.
@@ -41,7 +65,15 @@ async function createPost(req, res) {
 }
 
 // GET /api/posts  (auth)
-// Optional query param: ?movieId= to see posts about one movie.
+// Optional query params:
+//   ?movieId=        -- only posts about one movie
+//   ?userId=         -- only one author's posts (e.g. a profile page)
+//   ?personalized=true -- rebuild the feed around the viewer's taste (see
+//                         below). Ignored whenever movieId or userId is set:
+//                         a single movie's wall or one person's post history
+//                         is supposed to be exactly what it says, not
+//                         re-sorted around a third thing.
+//
 // Returns like count + comment count per post via subqueries, which is
 // far cheaper than joining and grouping across three tables at once.
 // Also returns IsLiked for the authenticated user (global requireAuth in
@@ -49,12 +81,36 @@ async function createPost(req, res) {
 // the frontend never has to guess -- or issue one request per post -- to
 // know whether the viewer already liked something.
 async function listPosts(req, res) {
-  const { movieId, userId } = req.query;
+  const { movieId, userId, personalized } = req.query;
   const currentUserId = req.user.userId;
+  const wantsTasteFeed = personalized === 'true' && !movieId && !userId;
 
   let connection;
   try {
     connection = await getPool().getConnection();
+
+    // "Favorite genre" is defined the same way /api/recommendations defines
+    // it -- genres of movies this viewer rated 8 or higher -- so the two
+    // features agree on what "your taste" means instead of drifting apart.
+    let favoriteGenreIds = [];
+    if (wantsTasteFeed) {
+      const favoriteGenres = await connection.execute(
+        `SELECT DISTINCT g.GenreID
+         FROM Review r
+         JOIN MovieGenre mg ON mg.MovieID = r.MovieID
+         JOIN Genre g ON g.GenreID = mg.GenreID
+         WHERE r.UserID = :currentUserId AND r.RatingValue >= 8`,
+        { currentUserId }
+      );
+      favoriteGenreIds = favoriteGenres.rows.map((row) => row.GENREID);
+    }
+
+    // oracledb can't bind a JS array straight into IN (...), so build
+    // ":g0, :g1, ..." placeholders the same way recommendationController does.
+    const genrePlaceholders = favoriteGenreIds.map((_, i) => `:g${i}`).join(', ');
+    const genreBinds = {};
+    favoriteGenreIds.forEach((id, i) => { genreBinds[`g${i}`] = id; });
+    const hasFavoriteGenres = favoriteGenreIds.length > 0;
 
     let sql = `
       SELECT p.PostID, p.PostText, p.PostDate,
@@ -68,12 +124,23 @@ async function listPosts(req, res) {
                      WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
                  )
                  THEN 1 ELSE 0
-             END AS IsLiked
+             END AS IsLiked${hasFavoriteGenres ? `,
+             CASE
+                 WHEN EXISTS (
+                     SELECT 1 FROM MovieGenre mgm
+                     WHERE mgm.MovieID = p.MovieID AND mgm.GenreID IN (${genrePlaceholders})
+                 )
+                 THEN 1 ELSE 0
+             END AS IsTasteMatch,
+             (SELECT LISTAGG(g2.GenreName, ', ') WITHIN GROUP (ORDER BY g2.GenreName)
+              FROM MovieGenre mg2 JOIN Genre g2 ON g2.GenreID = mg2.GenreID
+              WHERE mg2.MovieID = p.MovieID AND mg2.GenreID IN (${genrePlaceholders})
+             ) AS MatchedGenres` : ''}
       FROM Post p
       JOIN AppUser u ON u.UserID = p.UserID
       JOIN Movie m ON m.MovieID = p.MovieID
     `;
-    const binds = { currentUserId };
+    const binds = { currentUserId, ...genreBinds };
 
     const filters = [];
     if (movieId) {
@@ -89,7 +156,19 @@ async function listPosts(req, res) {
     sql += ' ORDER BY p.PostDate DESC';
 
     const result = await connection.execute(sql, binds);
-    res.json(result.rows);
+    let posts = result.rows;
+
+    // Reshuffle into ~80% taste-matched / ~20% everything-else, each half
+    // staying newest-first internally. If the viewer hasn't rated anything
+    // 8+ yet there's nothing to weight toward, so it falls back to plain
+    // chronological -- same honest fallback /api/recommendations uses.
+    if (wantsTasteFeed && hasFavoriteGenres) {
+      const matching = posts.filter((post) => post.ISTASTEMATCH === 1);
+      const other = posts.filter((post) => post.ISTASTEMATCH !== 1);
+      posts = interleaveByRatio(matching, other, 0.8);
+    }
+
+    res.json(posts);
   } catch (err) {
     console.error('List posts error:', err);
     res.status(500).json({ error: 'Failed to fetch posts' });
