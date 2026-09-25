@@ -879,3 +879,353 @@
     height: 108px;
   }
 }
+
+/* Interactive social posts */
+.profile-post--interactive {
+  position: relative;
+}
+
+.profile-post-card__author {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-post-card__author > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.profile-post-card__author:hover strong,
+.profile-comment__name:hover {
+  color: var(--accent-bright);
+}
+
+.profile-post-card__avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: .95rem;
+  overflow: hidden;
+}
+
+.profile-post-card__avatar--image {
+  object-fit: cover;
+}
+
+.profile-post-card__author small {
+  color: var(--text-faint);
+  font-size: .78rem;
+}
+
+.profile-post__actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 13px 0 0 !important;
+}
+
+.profile-post__action,
+.profile-post__count {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color .18s ease, transform .18s ease, background .18s ease;
+}
+
+.profile-post__action {
+  width: 34px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.12rem;
+}
+
+.profile-post__count {
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: .78rem;
+}
+
+.profile-post__action:hover,
+.profile-post__count:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.profile-post__action--liked {
+  color: var(--accent-bright);
+}
+
+.profile-post__action:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+.profile-post__error {
+  margin: 8px 0 0;
+  color: #d98d8d;
+  font-size: .78rem;
+}
+
+.profile-comment-section {
+  margin-top: 14px;
+  padding: 15px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 12px 12px;
+  background: rgba(255,255,255,.018);
+}
+
+.profile-comment-section__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-comment-section__heading span {
+  color: var(--accent-bright);
+  font-size: .6rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.profile-comment-section__heading strong {
+  color: var(--text-faint);
+  font-size: .75rem;
+  font-weight: 500;
+}
+
+.profile-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 0;
+}
+
+.profile-comment > button:first-child {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.profile-comment .profile-post-card__avatar {
+  width: 31px;
+  height: 31px;
+  flex-basis: 31px;
+  font-size: .75rem;
+}
+
+.profile-comment__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-comment__name {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-comment__body p {
+  margin: 3px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: var(--text-muted);
+  font-size: .84rem;
+}
+
+.profile-comment__delete {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.profile-comment__delete:hover {
+  color: #d98d8d;
+}
+
+.profile-comment-section__empty {
+  margin: 12px 0 16px;
+  color: var(--text-faint);
+  font-size: .82rem;
+}
+
+.profile-comment-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.profile-comment-form .profile-post-card__avatar {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+}
+
+.profile-comment-form input {
+  min-width: 0;
+  flex: 1;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 0 13px;
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.profile-comment-form input:focus {
+  border-color: rgba(216,161,93,.55);
+}
+
+.profile-comment-form button {
+  border: 0;
+  border-radius: 17px;
+  padding: 8px 12px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-comment-form button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.profile-likes-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(4,4,6,.72);
+  backdrop-filter: blur(8px);
+}
+
+.profile-likes-modal {
+  width: min(430px, 100%);
+  max-height: min(620px, 85vh);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg);
+  box-shadow: 0 25px 80px rgba(0,0,0,.45);
+}
+
+.profile-likes-modal header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 20px 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-likes-modal header div {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-likes-modal header span {
+  color: var(--accent-bright);
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .15em;
+}
+
+.profile-likes-modal h2 {
+  margin: 0;
+  font: 500 1.35rem var(--font-display);
+}
+
+.profile-likes-modal header > button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+
+.profile-likes-modal__message {
+  padding: 28px 20px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.profile-likes-modal__list {
+  padding: 8px;
+}
+
+.profile-likes-modal__list > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-likes-modal__list > button:hover {
+  background: var(--surface);
+}
+
+.profile-likes-modal__list > button > div {
+  display: grid;
+  gap: 2px;
+}
+
+.profile-likes-modal__list small {
+  color: var(--text-faint);
+}
+
+@media (max-width: 600px) {
+  .profile-post__actions {
+    gap: 2px;
+  }
+
+  .profile-post__count {
+    padding-inline: 7px;
+  }
+
+  .profile-comment-section {
+    padding: 13px 8px;
+  }
+
+  .profile-comment-form {
+    align-items: stretch;
+  }
+
+  .profile-comment-form input {
+    width: 0;
+  }
+}

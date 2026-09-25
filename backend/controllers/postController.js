@@ -56,12 +56,16 @@ async function listPosts(req, res) {
              u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL,
              m.MovieID, m.Title AS MovieTitle, m.PosterURL,
              (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
-             (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount
+             (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount,
+             CASE WHEN EXISTS (
+               SELECT 1 FROM PostLike pl2
+               WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
+             ) THEN 1 ELSE 0 END AS IsLiked
       FROM Post p
       JOIN AppUser u ON u.UserID = p.UserID
       JOIN Movie m ON m.MovieID = p.MovieID
     `;
-    const binds = {};
+    const binds = { currentUserId: req.user.userId };
 
     const filters = [];
     if (movieId) {
@@ -98,12 +102,17 @@ async function getPost(req, res) {
       `SELECT p.PostID, p.PostText, p.PostDate,
               u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL,
               m.MovieID, m.Title AS MovieTitle, m.PosterURL,
-              (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount
+              (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
+              (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount,
+              CASE WHEN EXISTS (
+                SELECT 1 FROM PostLike pl2
+                WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
+              ) THEN 1 ELSE 0 END AS IsLiked
        FROM Post p
        JOIN AppUser u ON u.UserID = p.UserID
        JOIN Movie m ON m.MovieID = p.MovieID
        WHERE p.PostID = :postId`,
-      { postId }
+      { postId, currentUserId: req.user.userId }
     );
 
     if (postResult.rows.length === 0) {
@@ -319,7 +328,11 @@ async function getFollowingFeed(req, res) {
               u.UserID, u.Username, u.DisplayName, u.ProfilePictureURL,
               m.MovieID, m.Title AS MovieTitle, m.PosterURL,
               (SELECT COUNT(*) FROM PostLike pl WHERE pl.PostID = p.PostID) AS LikeCount,
-              (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount
+              (SELECT COUNT(*) FROM PostComment pc WHERE pc.PostID = p.PostID) AS CommentCount,
+              CASE WHEN EXISTS (
+                SELECT 1 FROM PostLike pl2
+                WHERE pl2.PostID = p.PostID AND pl2.UserID = :currentUserId
+              ) THEN 1 ELSE 0 END AS IsLiked
        FROM Post p
        JOIN AppUser u ON u.UserID = p.UserID
        JOIN Movie m ON m.MovieID = p.MovieID
@@ -327,7 +340,7 @@ async function getFollowingFeed(req, res) {
          SELECT FollowedID FROM UserFollow WHERE FollowerID = :userId
        )
        ORDER BY p.PostDate DESC`,
-      { userId }
+      { userId, currentUserId: req.user.userId }
     );
     res.json(result.rows);
   } catch (err) {
