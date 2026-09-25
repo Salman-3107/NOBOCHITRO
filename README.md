@@ -151,6 +151,4 @@ Route groups: `auth`, `movie`, `review`, `bucketList`, `post`, `follow`, `journa
 
 See `CHECKLIST_COMPLIANCE.md` for a full map of these features to their exact file and function locations, and `ERD/` for the entity-relationship diagram.
 
-## License
 
-No license file is currently included — add one if you intend to distribute this project.
