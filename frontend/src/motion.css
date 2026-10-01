@@ -52,7 +52,7 @@
    position: fixed popups that live inside these containers. */
 
 .profile-wrap,
-.journey-wrap,
+.journal-page__wrap,
 .challenges-wrap,
 .passport-wrap,
 .stats-wrap,
@@ -67,13 +67,13 @@
 
 .profile-modal-backdrop,
 .journal-modal-backdrop,
-.journey-modal {
+.journal-form-backdrop {
   animation: ui-fade-in 200ms ease backwards;
 }
 
 .profile-modal,
 .journal-modal,
-.journey-modal form {
+.journal-form-modal {
   animation: ui-sheet-in 340ms var(--ease-out) backwards;
 }
 

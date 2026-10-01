@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Header from '../components/Header';
 import { followUser, getFollowers, getFollowing, getUserActivity, getUserJournal, getUserProfile, getUserWatchlist, listPosts, unfollowUser, updateMyProfile, uploadProfileMedia } from '../api/movies';
-import ProfilePostCard from '../components/ProfilePostCard';
 import EmptyState from '../components/EmptyState';
 import JournalEntryModal from '../components/JournalEntryModal';
 import { useToast } from '../components/Toast';
+import { LikersModal } from '../components/PostSocial';
+import { usePostSocial } from '../hooks/usePostSocial';
+import CommentSection from '../components/CommentSection';
 import './ProfilePage.css';
 
 const PROFILE_TABS = ['posts', 'watchlist', 'journal', 'activity'];
@@ -18,6 +20,57 @@ function formatShortDate(dateValue) {
 function Avatar({ profile }) {
   const label = (profile.DISPLAYNAME || profile.USERNAME || '?').charAt(0);
   return profile.PROFILEPICTUREURL ? <img className="profile-avatar" src={profile.PROFILEPICTUREURL} alt={`${profile.DISPLAYNAME || profile.USERNAME}'s profile`} /> : <div className="profile-avatar">{label}</div>;
+}
+
+// A post inside the profile's Posts tab -- same content/layout as before,
+// but the like and comment counts are now real controls instead of static
+// numbers, sharing usePostSocial (and its LikersModal) with CommunityPage
+// so the two behave identically.
+function ProfilePostCard({ post, profile, user, onSelectMovie, onSelectProfile }) {
+  const toast = useToast();
+  const {
+    expanded, comments, isLiked, likes, commentCount, isLiking,
+    likersOpen, likers, likersStatus, setLikersOpen,
+    openLikers, openLikerProfile, toggleComments, toggleLike,
+    submitComment, removeComment,
+  } = usePostSocial(post);
+
+  async function handleToggleLike() {
+    try { await toggleLike(); } catch { toast.error('Could not update your like. Please try again.'); }
+  }
+  async function handleSubmitComment(text) {
+    try { await submitComment(text); }
+    catch { toast.error('Could not post your comment. Please try again.'); }
+  }
+  async function handleRemoveComment(commentId) {
+    try { await removeComment(commentId); } catch { toast.error('Could not delete that comment.'); }
+  }
+
+  return (
+    <article className="profile-post">
+      <header><Avatar profile={profile} /><div><strong>{profile.DISPLAYNAME || profile.USERNAME}</strong><small>@{profile.USERNAME} · {new Date(post.POSTDATE).toLocaleDateString()}</small></div></header>
+      <p>{post.POSTTEXT}</p>
+      <button type="button" className="profile-post__movie" onClick={() => onSelectMovie(post.MOVIEID)}>
+        {post.POSTERURL ? <img src={post.POSTERURL} alt={`${post.MOVIETITLE} poster`} /> : <span className="profile-post__placeholder">🎬</span>}
+        <span className="profile-post__film-info"><i>FEATURED FILM</i><strong>{post.MOVIETITLE}</strong><small>Join the conversation about this film →</small></span>
+      </button>
+      <div className="community-post__actions">
+        <button type="button" disabled={isLiking} className={isLiked ? 'post-action post-action--liked' : 'post-action'} onClick={handleToggleLike} aria-label={isLiked ? 'Unlike this post' : 'Like this post'}>♥</button>
+        {likes > 0 && <button type="button" className="post-action post-action--count" onClick={openLikers}>{likes} {likes === 1 ? 'like' : 'likes'}</button>}
+        <button type="button" className="post-action" onClick={toggleComments}>◌ <span>{commentCount || ''}</span> Comments</button>
+      </div>
+      {expanded && (
+        <CommentSection
+          comments={comments}
+          currentUserId={user.userId}
+          onSelectProfile={onSelectProfile}
+          onSubmit={handleSubmitComment}
+          onDelete={handleRemoveComment}
+        />
+      )}
+      {likersOpen && <LikersModal people={likers} status={likersStatus} currentUserId={user.userId} onClose={() => setLikersOpen(false)} onOpenProfile={(userId) => openLikerProfile(userId, onSelectProfile)} />}
+    </article>
+  );
 }
 
 function PersonList({ title, people, onClose, onOpenProfile }) {
@@ -165,7 +218,7 @@ export default function ProfilePage({ profileUserId, user, onLogout, onNavigate,
     {favorites.length > 0 && <section className="profile-favorites profile-favorites--reference"><div className="profile-section-heading"><div><p>{isOwner ? 'YOUR MOVIE IDENTITY' : 'THEIR MOVIE IDENTITY'}</p><h2>Favorite Movies</h2></div><button type="button" onClick={() => switchTab('watchlist')}>See all</button></div><div className="favorite-film-strip">{favorites.map((movie) => <button type="button" key={movie.MOVIEID} onClick={() => onSelectMovie(movie.MOVIEID)}>{movie.POSTERURL ? <img src={movie.POSTERURL} alt={`${movie.TITLE} poster`} /> : <span>🎬</span>}<i>★ {movie.RATINGVALUE}</i><strong>{movie.TITLE}</strong></button>)}</div></section>}
     <nav className="profile-tabs profile-tabs--reference" role="tablist">{PROFILE_TABS.map((key) => <button type="button" role="tab" aria-selected={tab === key} ref={(element) => { tabButtonRefs.current[key] = element; }} className={tab === key ? 'profile-tab profile-tab--active' : 'profile-tab'} onClick={() => switchTab(key)} key={key}>{key}</button>)}<span className={tabLine.animate ? 'profile-tabs__line profile-tabs__line--slides' : 'profile-tabs__line'} style={{ width: tabLine.width, transform: `translateX(${tabLine.left}px)` }} aria-hidden="true" /></nav>
     <section key={tab} className={`profile-content profile-content--reference${tabDirection ? ` profile-content--${tabDirection}` : ''}`}>
-      {tab === 'posts' && (posts.length ? posts.map((post) => <ProfilePostCard key={post.POSTID} post={post} user={user} profile={profile} onSelectMovie={onSelectMovie} onSelectProfile={onSelectProfile} />) : <p className="profile-empty">No posts yet. The first great movie thought is waiting.</p>)}
+      {tab === 'posts' && (posts.length ? posts.map((post) => <ProfilePostCard key={post.POSTID} post={post} profile={profile} user={user} onSelectMovie={onSelectMovie} onSelectProfile={onSelectProfile} />) : <p className="profile-empty">No posts yet. The first great movie thought is waiting.</p>)}
       {tab === 'activity' && (activity.length ? activity.map((item, index) => <button type="button" className="profile-activity" key={`${item.MOVIEID}-${index}`} onClick={() => onSelectMovie(item.MOVIEID)}><span>{item.ACTIVITYTYPE === 'Rated' ? '★' : item.ACTIVITYTYPE === 'Posted' ? '◌' : '🎬'}</span><div><strong>{item.ACTIVITYTYPE} <em>{item.MOVIETITLE}</em></strong><p>{item.EXTRAINFO || 'Added to their movie story'}</p></div></button>) : <p className="profile-empty">No public activity yet.</p>)}
       {tab === 'watchlist' && (watchlistBlocked ? <EmptyState compact icon={'\u{1F512}'} title="This watchlist is private" message={`${profile.DISPLAYNAME || profile.USERNAME} keeps their watchlist to themselves.`} /> : watchlist.length ? <div className="profile-movie-grid">{watchlist.map((movie) => <button type="button" key={movie.MOVIEID} onClick={() => onSelectMovie(movie.MOVIEID)}>{movie.POSTERURL ? <img src={movie.POSTERURL} alt="" /> : <span>🎬</span>}<strong>{movie.TITLE}</strong><small>{movie.RELEASEYEAR}</small></button>)}</div> : <p className="profile-empty">This watchlist is still empty.</p>)}
       {tab === 'journal' && (journal.length ? journal.map((entry) => <button type="button" className="profile-journal" key={entry.JOURNALID} onClick={() => setOpenJournalEntry(entry)} aria-label={`Read journal entry for ${entry.MOVIETITLE}`}>{entry.POSTERURL ? <img className="profile-journal__poster" src={entry.POSTERURL} alt="" /> : <span className="profile-journal__poster profile-journal__poster--empty">🎬</span>}<div className="profile-journal__body"><strong>{entry.MOVIETITLE}</strong><p>{[formatShortDate(entry.WATCHDATE), entry.MOODAFTER, entry.WATCHLOCATION].filter(Boolean).join(' · ') || 'Movie memory'}</p>{entry.JOURNALTEXT && <em>{entry.JOURNALTEXT}</em>}</div><span className="profile-journal__chevron" aria-hidden="true">›</span></button>) : <p className="profile-empty">No public journal entries yet.</p>)}

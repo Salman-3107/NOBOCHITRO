@@ -80,10 +80,16 @@ export function searchMembers(query) {
   return apiRequest(`/search?q=${encodeURIComponent(query)}&only=users`).then((data) => data.users || []);
 }
 
-export function listPosts({ movieId, userId } = {}) {
+// `personalized` asks the backend to reorder the general feed around the
+// viewer's taste (~80% posts about genres they rate highly, ~20% everything
+// else) instead of plain newest-first. Only meaningful with no movieId/userId
+// filter -- a single movie's wall or one person's post history should stay
+// exactly what it says.
+export function listPosts({ movieId, userId, personalized } = {}) {
   const params = new URLSearchParams();
   if (movieId) params.set('movieId', movieId);
   if (userId) params.set('userId', userId);
+  if (personalized) params.set('personalized', 'true');
   const query = params.toString();
   return apiRequest(`/posts${query ? `?${query}` : ''}`);
 }
